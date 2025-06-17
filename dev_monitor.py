@@ -178,6 +178,8 @@ class PersonTracker:
         self.person_count_history = deque(maxlen=60)
         self.unique_persons_counted = 0
         self.counted_track_ids = set()
+        self.daily_max_count = 0
+        self.last_reset_date = datetime.now().date()
 
     def update(self, detections: List[Detection]) -> List[TrackedPerson]:
         """Update tracker with new detections"""
@@ -213,7 +215,12 @@ class PersonTracker:
             self.next_track_id += 1
 
         # Update count history
-        self.person_count_history.append(len(self.tracks))
+        current_count = len(self.tracks)
+        self.person_count_history.append(current_count)
+        
+        # Update daily maximum tracking
+        self._update_daily_maximum(current_count)
+        
         return list(self.tracks.values())
 
     def _associate_detections(self, detections: List[Detection]) -> Tuple[List[Tuple[Detection, int]], List[Detection]]:
@@ -275,6 +282,23 @@ class PersonTracker:
         recent_counts = list(self.person_count_history)[-10:]
         return int(np.median(recent_counts)) if recent_counts else 0
 
+    def _update_daily_maximum(self, current_count: int):
+        """Update daily maximum count and reset at 08:00 daily"""
+        now = datetime.now()
+        current_date = now.date()
+        current_hour = now.hour
+        
+        # Reset daily maximum at 08:00 each day (store opening time)
+        if (current_date != self.last_reset_date and current_hour >= 8) or \
+           (current_date == self.last_reset_date and current_hour == 8 and self.last_reset_date < current_date):
+            self.daily_max_count = 0
+            self.last_reset_date = current_date
+            print(f"Daily maximum reset at {now.strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # Update daily maximum if current count is higher
+        if current_count > self.daily_max_count:
+            self.daily_max_count = current_count
+
     def get_analytics(self) -> Dict:
         """Get tracking analytics"""
         active_tracks = [t for t in self.tracks.values() if t.is_active]
@@ -289,7 +313,8 @@ class PersonTracker:
             'unique_persons_total': self.unique_persons_counted,
             'active_tracks': len(active_tracks),
             'direction_distribution': dict(direction_counts),
-            'avg_dwell_time': np.mean([t.last_seen - t.first_seen for t in self.tracks.values()]) if self.tracks else 0
+            'avg_dwell_time': np.mean([t.last_seen - t.first_seen for t in self.tracks.values()]) if self.tracks else 0,
+            'daily_max_count': self.daily_max_count
         }
 
 # Initialize tracker
@@ -619,7 +644,7 @@ def get_metrics():
         'avg_60m': analytics['current_count'],
         'max_60m': analytics['current_count'],
         'daily_avg': analytics['current_count'],
-        'daily_max': analytics['current_count'],
+        'daily_max': analytics['daily_max_count'],
         'daily_total_readings': 100
     }
 
