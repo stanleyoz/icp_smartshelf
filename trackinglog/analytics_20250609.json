@@ -1,0 +1,60 @@
+{"timestamp": "2025-06-09T10:35:23.839221", "current_count": 2, "unique_persons_total": 0, "direction_distribution": {"left": 1, "up": 1}, "avg_dwell_time": 299.96605587005615, "active_tracks": 2}
+{"timestamp": "2025-06-09T16:13:33.837797", "current_count": 4, "unique_persons_total": 1, "direction_distribution": {"up": 3, "right": 1, "left": 2}, "avg_dwell_time": 1.6705102523167927, "active_tracks": 6}
+{"timestamp": "2025-06-09T17:30:43.742303", "current_count": 9, "unique_persons_total": 8, "direction_distribution": {"up": 3, "down": 2}, "avg_dwell_time": 68.48595960934956, "active_tracks": 6}
+{"timestamp": "2025-06-09T17:35:43.777290", "current_count": 2, "unique_persons_total": 11, "direction_distribution": {"down": 1, "up": 1}, "avg_dwell_time": 23.156144857406616, "active_tracks": 2}
+{"timestamp": "2025-06-09T17:40:43.794532", "current_count": 2, "unique_persons_total": 11, "direction_distribution": {"right": 1, "down": 1}, "avg_dwell_time": 323.16670060157776, "active_tracks": 2}
+{"timestamp": "2025-06-09T17:45:43.802021", "current_count": 8, "unique_persons_total": 12, "direction_distribution": {"down": 3}, "avg_dwell_time": 155.97453224658966, "active_tracks": 3}
+{"timestamp": "2025-06-09T17:50:43.795006", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 1, "down": 1}, "avg_dwell_time": 166.19542622566223, "active_tracks": 2}
+{"timestamp": "2025-06-09T17:55:43.811181", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 2}, "avg_dwell_time": 466.209308385849, "active_tracks": 2}
+{"timestamp": "2025-06-09T18:00:43.827619", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"down": 1, "up": 1}, "avg_dwell_time": 766.2242968082428, "active_tracks": 2}
+{"timestamp": "2025-06-09T18:05:43.836881", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"down": 1, "up": 1}, "avg_dwell_time": 1066.2332344055176, "active_tracks": 2}
+{"timestamp": "2025-06-09T18:10:43.852965", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 2}, "avg_dwell_time": 1366.2494051456451, "active_tracks": 2}
+{"timestamp": "2025-06-09T18:15:43.861876", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"down": 1, "up": 1}, "avg_dwell_time": 1666.2610778808594, "active_tracks": 2}
+{"timestamp": "2025-06-09T18:20:43.876418", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"down": 1, "right": 1}, "avg_dwell_time": 1966.2722296714783, "active_tracks": 2}
+{"timestamp": "2025-06-09T18:25:43.899111", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 2}, "avg_dwell_time": 2266.2971456050873, "active_tracks": 2}
+{"timestamp": "2025-06-09T18:30:43.926236", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 1, "right": 1}, "avg_dwell_time": 2566.32000875473, "active_tracks": 2}
+{"timestamp": "2025-06-09T18:35:43.939339", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 2}, "avg_dwell_time": 2866.3337903022766, "active_tracks": 2}
+{"timestamp": "2025-06-09T18:40:43.956347", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"down": 1, "up": 1}, "avg_dwell_time": 3166.3522639274597, "active_tracks": 2}
+{"timestamp": "2025-06-09T18:45:43.968475", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 1, "right": 1}, "avg_dwell_time": 3466.3659994602203, "active_tracks": 2}
+{"timestamp": "2025-06-09T18:50:43.990348", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"down": 1, "up": 1}, "avg_dwell_time": 3766.3897681236267, "active_tracks": 2}
+{"timestamp": "2025-06-09T18:55:44.008689", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"right": 1, "up": 1}, "avg_dwell_time": 4066.4043657779694, "active_tracks": 2}
+{"timestamp": "2025-06-09T19:00:44.020618", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 1, "down": 1}, "avg_dwell_time": 4366.418724536896, "active_tracks": 2}
+{"timestamp": "2025-06-09T19:05:44.028855", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 2}, "avg_dwell_time": 4666.429416179657, "active_tracks": 2}
+{"timestamp": "2025-06-09T19:10:44.048735", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 1, "right": 1}, "avg_dwell_time": 4966.445316076279, "active_tracks": 2}
+{"timestamp": "2025-06-09T19:15:44.063859", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 1, "down": 1}, "avg_dwell_time": 5266.459627151489, "active_tracks": 2}
+{"timestamp": "2025-06-09T19:20:44.069611", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"left": 1, "up": 1}, "avg_dwell_time": 5566.470929145813, "active_tracks": 2}
+{"timestamp": "2025-06-09T19:25:44.096666", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"down": 1, "up": 1}, "avg_dwell_time": 5866.492500066757, "active_tracks": 2}
+{"timestamp": "2025-06-09T19:30:44.133766", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"left": 1, "up": 1}, "avg_dwell_time": 6166.529798746109, "active_tracks": 2}
+{"timestamp": "2025-06-09T19:35:44.114875", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"right": 1, "down": 1}, "avg_dwell_time": 6466.511593341827, "active_tracks": 2}
+{"timestamp": "2025-06-09T19:40:44.127317", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 2}, "avg_dwell_time": 6766.524361610413, "active_tracks": 2}
+{"timestamp": "2025-06-09T19:45:44.140495", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"left": 1, "up": 1}, "avg_dwell_time": 7066.538608312607, "active_tracks": 2}
+{"timestamp": "2025-06-09T19:50:44.155243", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"left": 1, "down": 1}, "avg_dwell_time": 7366.551921606064, "active_tracks": 2}
+{"timestamp": "2025-06-09T19:55:44.166108", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 2}, "avg_dwell_time": 7666.56544137001, "active_tracks": 2}
+{"timestamp": "2025-06-09T20:00:44.181102", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 2}, "avg_dwell_time": 7966.579708337784, "active_tracks": 2}
+{"timestamp": "2025-06-09T20:05:44.193362", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"right": 1, "down": 1}, "avg_dwell_time": 8266.59151339531, "active_tracks": 2}
+{"timestamp": "2025-06-09T20:10:44.206613", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 1, "down": 1}, "avg_dwell_time": 8566.604171276093, "active_tracks": 2}
+{"timestamp": "2025-06-09T20:15:44.220074", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"down": 2}, "avg_dwell_time": 8866.61746263504, "active_tracks": 2}
+{"timestamp": "2025-06-09T20:20:44.236144", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"right": 1, "down": 1}, "avg_dwell_time": 9166.632272005081, "active_tracks": 2}
+{"timestamp": "2025-06-09T20:25:44.247145", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"down": 2}, "avg_dwell_time": 9466.643676042557, "active_tracks": 2}
+{"timestamp": "2025-06-09T20:30:44.261249", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"right": 1, "down": 1}, "avg_dwell_time": 9766.660102844238, "active_tracks": 2}
+{"timestamp": "2025-06-09T20:35:44.269705", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"left": 1, "right": 1}, "avg_dwell_time": 10066.670338869095, "active_tracks": 2}
+{"timestamp": "2025-06-09T20:40:44.284314", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"down": 1, "left": 1}, "avg_dwell_time": 10366.684196710587, "active_tracks": 2}
+{"timestamp": "2025-06-09T20:45:44.296690", "current_count": 2, "unique_persons_total": 18, "direction_distribution": {"up": 2}, "avg_dwell_time": 10666.695697546005, "active_tracks": 2}
+{"timestamp": "2025-06-09T20:50:44.330597", "current_count": 1, "unique_persons_total": 19, "direction_distribution": {"up": 1}, "avg_dwell_time": 13.040761947631836, "active_tracks": 1}
+{"timestamp": "2025-06-09T20:55:44.339743", "current_count": 3, "unique_persons_total": 21, "direction_distribution": {"up": 2}, "avg_dwell_time": 284.331827878952, "active_tracks": 2}
+{"timestamp": "2025-06-09T21:00:44.350154", "current_count": 2, "unique_persons_total": 26, "direction_distribution": {"up": 2}, "avg_dwell_time": 584.3456256389618, "active_tracks": 2}
+{"timestamp": "2025-06-09T21:05:44.364537", "current_count": 2, "unique_persons_total": 28, "direction_distribution": {"up": 1, "left": 1}, "avg_dwell_time": 884.3608281612396, "active_tracks": 2}
+{"timestamp": "2025-06-09T21:10:44.383918", "current_count": 2, "unique_persons_total": 29, "direction_distribution": {"up": 2}, "avg_dwell_time": 1184.3775670528412, "active_tracks": 2}
+{"timestamp": "2025-06-09T21:15:44.395737", "current_count": 2, "unique_persons_total": 29, "direction_distribution": {"up": 1, "down": 1}, "avg_dwell_time": 1484.3897445201874, "active_tracks": 2}
+{"timestamp": "2025-06-09T21:20:44.415702", "current_count": 3, "unique_persons_total": 29, "direction_distribution": {"up": 1, "down": 1}, "avg_dwell_time": 1189.900340795517, "active_tracks": 2}
+{"timestamp": "2025-06-09T21:25:44.425944", "current_count": 2, "unique_persons_total": 31, "direction_distribution": {"up": 2}, "avg_dwell_time": 2084.4180426597595, "active_tracks": 2}
+{"timestamp": "2025-06-09T21:30:44.476461", "current_count": 5, "unique_persons_total": 37, "direction_distribution": {"up": 2, "right": 1}, "avg_dwell_time": 520.3993317127228, "active_tracks": 3}
+{"timestamp": "2025-06-09T21:35:44.490151", "current_count": 3, "unique_persons_total": 39, "direction_distribution": {"up": 3}, "avg_dwell_time": 1125.7494016488392, "active_tracks": 3}
+{"timestamp": "2025-06-09T21:40:44.508289", "current_count": 4, "unique_persons_total": 39, "direction_distribution": {"up": 3}, "avg_dwell_time": 1069.3231282234192, "active_tracks": 4}
+{"timestamp": "2025-06-09T21:45:44.517488", "current_count": 5, "unique_persons_total": 41, "direction_distribution": {"up": 3, "right": 1}, "avg_dwell_time": 904.0570331573487, "active_tracks": 5}
+{"timestamp": "2025-06-09T21:50:44.535267", "current_count": 4, "unique_persons_total": 43, "direction_distribution": {"up": 3, "left": 1}, "avg_dwell_time": 1244.5449341535568, "active_tracks": 4}
+{"timestamp": "2025-06-09T21:55:44.547286", "current_count": 3, "unique_persons_total": 45, "direction_distribution": {"up": 2, "left": 1}, "avg_dwell_time": 1841.780769666036, "active_tracks": 3}
+{"timestamp": "2025-06-09T22:00:44.561273", "current_count": 3, "unique_persons_total": 49, "direction_distribution": {"up": 1, "right": 2}, "avg_dwell_time": 2075.392255306244, "active_tracks": 3}
+{"timestamp": "2025-06-09T22:05:44.568305", "current_count": 2, "unique_persons_total": 53, "direction_distribution": {"up": 1, "right": 1}, "avg_dwell_time": 100.63071978092194, "active_tracks": 2}
+{"timestamp": "2025-06-09T22:10:44.582775", "current_count": 3, "unique_persons_total": 58, "direction_distribution": {"up": 3}, "avg_dwell_time": 270.93991525967914, "active_tracks": 3}
+{"timestamp": "2025-06-09T22:15:44.585971", "current_count": 2, "unique_persons_total": 66, "direction_distribution": {"down": 2}, "avg_dwell_time": 700.6555052995682, "active_tracks": 2}

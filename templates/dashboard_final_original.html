@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>O4 Person Tracking Dashboard</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .main-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            flex-grow: 1;
+        }
+        .video-section, .metrics-section, .chart-section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+        .video-section {
+            flex: 2;
+            min-width: 680px;
+            display: flex;
+            flex-direction: column;
+        }
+        .metrics-section {
+            flex: 1;
+            min-width: 300px;
+        }
+        .chart-section {
+            flex-basis: 100%;
+        }
+
+        .video-container {
+            text-align: center;
+            background: #000;
+            border-radius: 5px;
+            overflow: hidden;
+            max-width: 640px;
+            margin: 0 auto;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #videoCanvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        .metric-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .metric-card.primary {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+        }
+        .metric-label {
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.8;
+            margin-bottom: 10px;
+        }
+        .metric-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .chart-controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 8px 16px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 5px;
+            background: #3498db;
+            color: white;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn:hover {
+            background: #2980b9;
+        }
+        .btn.active {
+            background: #2c3e50;
+        }
+        .status-bar {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+            background-color: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>O4 Person Tracking Dashboard</h1>
+            <p>Real-time monitoring with historical analytics</p>
+        </div>
+
+        <div class="status-bar">
+            <div>
+                <span class="status-indicator"></span>
+                <span id="status-text">Connected</span>
+            </div>
+            <div id="last-update">Last update: --</div>
+        </div>
+
+        <div class="main-content">
+            <div class="video-section">
+                <h2 style="text-align: center; margin-bottom: 20px;">Live Camera Feed</h2>
+                <div class="video-container">
+                    {% if has_camera %}
+                    <canvas id="videoCanvas" width="640" height="480"></canvas>
+                    {% else %}
+                    <div style="padding: 100px; color: white;">
+                        <h3>Camera Not Available</h3>
+                        <p>Essential camera/CV modules are missing or camera initialization failed.</p>
+                        <p>Ensure `picamera2`, `opencv-python`, and `numpy` are installed.</p>
+                        <p>Also, verify camera is connected and not in use by other applications.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="metrics-section">
+                <h2 style="text-align: center; margin-bottom: 20px;">Tracking Metrics</h2>
+                <div class="metrics-grid">
+                    <div class="metric-card primary">
+                        <div class="metric-label">Current Persons</div>
+                        <div class="metric-value" id="current-count">-</div>
+                        <div class="metric-sub">Live count</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-label">Last 5 Minutes</div>
+                        <div class="metric-value" id="avg-5m">-</div>
+                        <div class="metric-sub">Avg: <span id="avg-5m-val">-</span> | Max: <span id="max-5m">-</span></div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-label">Last 30 Minutes</div>
+                        <div class="metric-value" id="avg-30m">-</div>
+                        <div class="metric-sub">Avg: <span id="avg-30m-val">-</span> | Max: <span id="max-30m">-</span></div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-label">Last 60 Minutes</div>
+                        <div class="metric-value" id="avg-60m">-</div>
+                        <div class="metric-sub">Avg: <span id="avg-60m-val">-</span> | Max: <span id="max-60m">-</span></div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-label">Today (Since 8AM)</div>
+                        <div class="metric-value" id="daily-avg">-</div>
+                        <div class="metric-sub">Avg: <span id="daily-avg-val">-</span> | Max: <span id="daily-max">-</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-section">
+            <h3 style="margin-bottom: 20px;">Historical Traffic Pattern</h3>
+            <div class="chart-controls">
+                <button class="btn active" onclick="updateChart('1h')">Last Hour</button>
+                <button class="btn" onclick="updateChart('24h')">Last 24 Hours</button>
+                <button class="btn" onclick="updateChart('today')">Today</button>
+            </div>
+            <canvas id="trafficChart" width="400" height="150"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const videoCanvas = document.getElementById('videoCanvas');
+        const ctx = videoCanvas.getContext('2d');
+
+        socket.on('video_frame', function(data) {
+            const img = new Image();
+            img.onload = function() {
+                ctx.clearRect(0, 0, videoCanvas.width, videoCanvas.height);
+                ctx.drawImage(img, 0, 0, videoCanvas.width, videoCanvas.height);
+                URL.revokeObjectURL(img.src);
+            };
+            img.src = 'data:image/jpeg;base64,' + data.image;
+        });
+
+        const chartCtx = document.getElementById('trafficChart').getContext('2d');
+        const trafficChart = new Chart(chartCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Average',
+                    data: [],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1
+                }, {
+                    label: 'Maximum',
+                    data: [],
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+
+        let currentPeriod = '1h';
+
+        function updateMetrics() {
+            fetch('/api/metrics')
+                .then(response => response.json())
+                .then(data => {
+                    const metrics = data.metrics;
+
+                    document.getElementById('current-count').textContent = metrics.current;
+                    document.getElementById('avg-5m').textContent = metrics.avg_5m.toFixed(1);
+                    document.getElementById('avg-5m-val').textContent = metrics.avg_5m.toFixed(1);
+                    document.getElementById('max-5m').textContent = metrics.max_5m;
+
+                    document.getElementById('avg-30m').textContent = metrics.avg_30m.toFixed(1);
+                    document.getElementById('avg-30m-val').textContent = metrics.avg_30m.toFixed(1);
+                    document.getElementById('max-30m').textContent = metrics.max_30m;
+
+                    document.getElementById('avg-60m').textContent = metrics.avg_60m.toFixed(1);
+                    document.getElementById('avg-60m-val').textContent = metrics.avg_60m.toFixed(1);
+                    document.getElementById('max-60m').textContent = metrics.max_60m;
+
+                    document.getElementById('daily-avg').textContent = metrics.daily_avg.toFixed(1);
+                    document.getElementById('daily-avg-val').textContent = metrics.daily_avg.toFixed(1);
+                    document.getElementById('daily-max').textContent = metrics.daily_max;
+
+                    document.getElementById('last-update').textContent =
+                        'Last update: ' + new Date().toLocaleTimeString();
+                })
+                .catch(error => {
+                    console.error('Error fetching metrics:', error);
+                    document.getElementById('status-text').textContent = 'Metrics connection error';
+                });
+        }
+
+        function updateChart(period) {
+            currentPeriod = period;
+
+            document.querySelectorAll('.btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                document.querySelector(`.btn[onclick="updateChart('${period}')"]`).classList.add('active');
+            }
+
+            fetch(`/api/historical/${period}`)
+                .then(response => response.json())
+                .then(data => {
+                    trafficChart.data.labels = data.labels;
+                    trafficChart.data.datasets[0].data = data.avg_data;
+                    trafficChart.data.datasets[1].data = data.max_data;
+                    trafficChart.update();
+                })
+                .catch(error => console.error('Chart error:', error));
+        }
+
+        setInterval(updateMetrics, 1000);
+        setInterval(() => updateChart(currentPeriod), 30000);
+
+        updateMetrics();
+        updateChart('1h');
+
+        window.addEventListener('beforeunload', function() {
+            socket.disconnect();
+        });
+    </script>
+</body>
+</html>
