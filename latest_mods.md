@@ -72,4 +72,4 @@ Access dashboard at: http://localhost:5000
 - `/api/metrics` - Current traffic metrics
 - `/api/summarize` - Generate AI summary (POST)
 - `/api/reset_counter` - Reset unique visitor counter (POST)
-- `/api/historical/{period}` - Historical data (6h, 24h)
+- `/api/historical/{period}` - Historical data (6h, 24h)Repository successfully set up with persistent authentication
