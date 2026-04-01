@@ -87,12 +87,29 @@ python3 dev_monitor.py
 nohup python3 dev_monitor.py &
 ```
 
-3. **Production Deployment**
+3. **Production Deployment** (Autostart on Boot)
 ```bash
-# Install as systemd service
+# Use the install script (recommended)
+chmod +x install_autostart.sh
+./install_autostart.sh
+
+# Or manually install the systemd service
 sudo cp traffic-monitor.service /etc/systemd/system/
+sudo systemctl daemon-reload
 sudo systemctl enable traffic-monitor
 sudo systemctl start traffic-monitor
+```
+
+**Service management commands:**
+```bash
+sudo systemctl status traffic-monitor   # Check status
+sudo systemctl stop traffic-monitor     # Stop service
+sudo journalctl -u traffic-monitor -f   # View live logs
+```
+
+4. **Agentic Monitoring Mode** (experimental)
+```bash
+python3 agentic_monitoring.py
 ```
 
 4. **Access Dashboard**
@@ -212,12 +229,31 @@ Local Pi Devices → AWS IoT Core → Lambda Functions → DynamoDB/S3
 
 ## Technical Architecture
 
+### File Structure
+```
+g_traffic/
+├── dev_monitor.py                  # Main Flask application
+├── agentic_monitoring.py           # Agentic LLM-driven monitoring (experimental)
+├── o4_hailo_detection_module.py    # O4 camera + HAILO-8 detection integration
+├── config_dev.py                   # Hardware detection and configuration
+├── install_autostart.sh            # Autostart service installer
+├── traffic-monitor.service         # Systemd service definition
+├── requirements.txt                # Python dependencies
+├── templates/
+│   ├── dashboard_final.html        # Main web dashboard
+│   └── agentic_dashboard.html      # Agentic mode dashboard
+├── models/                         # HAILO quantized model files
+├── trackinglog/                    # CSV tracking data logs
+└── openai.txt                      # OpenAI API key (not committed)
+```
+
 ### System Components
-- **Detection Engine**: OpenCV + HAILO-8 inference
+- **Detection Engine**: OpenCV + HAILO-8 inference (O4 camera optimised)
 - **Tracking System**: Multi-object tracking with ID persistence
 - **Web Framework**: Flask + SocketIO for real-time updates
 - **Data Layer**: CSV logging + JSON configuration
 - **AI Integration**: OpenAI API for insights generation
+- **Service Manager**: Systemd for autostart and crash recovery
 
 ### Performance Specifications
 - **Processing Speed**: 30 FPS real-time inference
