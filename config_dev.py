@@ -8,7 +8,7 @@ import os
 DEV_MODE = False  # Enable live mode for real inference
 SIMULATE_CAMERA = False  # Use real camera when available
 SIMULATE_HAILO = False  # Use real HAILO inference
-USE_WEBCAM = False  # Prefer Picamera2 over webcam
+USE_WEBCAM = True  # Enable webcam for live camera mode
 
 # Paths
 MONITOR_PATH = os.path.expanduser("~/g_traffic")
@@ -24,7 +24,7 @@ SIMULATION_MOVEMENT_SPEED = 5  # Pixels per frame
 SIMULATION_FRAME_SIZE = (640, 480)
 
 # Flask settings
-FLASK_HOST = "127.0.0.1"  # localhost for development
+FLASK_HOST = "0.0.0.0"  # localhost for development
 FLASK_PORT = 5000
 FLASK_DEBUG = False  # Set to True for development debugging
 
@@ -64,6 +64,8 @@ def check_hardware():
 
 def get_camera_source():
     """Get the best available camera source"""
+    # Ensure hardware is checked first
+    check_hardware()
     if HARDWARE_AVAILABLE['picamera2'] and not SIMULATE_CAMERA:
         return 'picamera2'
     elif USE_WEBCAM:
@@ -85,6 +87,8 @@ def get_camera_source():
 
 def get_inference_mode():
     """Get the best available inference mode"""
+    # Ensure hardware is checked first
+    check_hardware()
     if HARDWARE_AVAILABLE['degirum'] and not SIMULATE_HAILO:
         return 'hailo'  # DeGirum can run HAILO models
     else:

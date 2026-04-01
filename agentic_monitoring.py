@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from typing import List, Tuple, Dict, Optional
 import json
 from openai import OpenAI
+import requests
 
 # Import development configuration
 from config_dev import (
@@ -91,6 +92,21 @@ try:
 except Exception as e:
     print(f"❌ Failed to initialize OpenAI client: {e}")
     openai_client = None
+    openai_api_key = None
+
+# Load Slack webhook URL
+try:
+    with open('slack.txt', 'r') as f:
+        SLACK_WEBHOOK_URL = f.read().strip()
+    print("✅ Slack webhook URL loaded successfully")
+except Exception:
+    SLACK_WEBHOOK_URL = None
+    print("⚠️  slack.txt not found — Slack alerts disabled")
+
+# Crowd alert cooldown state
+last_alert_time = 0          # epoch seconds
+ALERT_COOLDOWN = 60          # 1 minute cooldown
+last_alert_message = ""      # shown in frontend popup
 
 # Tracking data
 current_person_count = 0
@@ -788,10 +804,75 @@ def camera_and_inference_thread():
         except Exception as e:
             print(f"Error closing camera: {e}")
 
+# ── Crowd Alert Agent (OpenAI-powered) ───────────────────────────────────────
+
+def _generate_alert_message(count: int, unique_today: int, daily_max: int, current_time: str) -> str:
+    """Ask OpenAI to write a concise Slack alert message."""
+    prompt = (
+        f"You are a retail operations assistant. Write a concise 1-2 sentence Slack alert "
+        f"for a supermarket manager. Current data: {count} persons in store at {current_time}, "
+        f"{unique_today} unique visitors today, daily peak so far: {daily_max}. "
+        f"Be specific and actionable."
+    )
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful retail operations assistant."},
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=80,
+        temperature=0.4,
+    )
+    return response.choices[0].message.content.strip()
+
+def _send_slack(message: str) -> bool:
+    """Post message to Slack webhook. Returns True on success."""
+    if not SLACK_WEBHOOK_URL:
+        print("⚠️  Slack webhook not configured — skipping notification")
+        return False
+    resp = requests.post(SLACK_WEBHOOK_URL, json={"text": message}, timeout=5)
+    return resp.status_code == 200
+
+def crowd_alert_agent_thread():
+    global last_alert_time, last_alert_message
+    while not stop_event.is_set():
+        time.sleep(10)  # check every 10 seconds
+        now = time.time()
+        if current_person_count >= 2 and (now - last_alert_time) >= ALERT_COOLDOWN:
+            try:
+                with data_lock:
+                    analytics = person_tracker.get_analytics()
+                current_time = datetime.now().strftime("%H:%M")
+                message = _generate_alert_message(
+                    count=current_person_count,
+                    unique_today=analytics["unique_persons_total"],
+                    daily_max=analytics["daily_max_count"],
+                    current_time=current_time,
+                )
+                sent = _send_slack(message)
+                last_alert_time = now
+                last_alert_message = message
+                socketio.emit("crowd_alert", {
+                    "message": last_alert_message,
+                    "count": current_person_count,
+                    "timestamp": datetime.now().strftime("%H:%M:%S"),
+                })
+                print(f"✅ Crowd alert {'sent' if sent else 'generated (Slack skipped)'}: {message}")
+            except Exception as e:
+                print(f"❌ Crowd agent error: {e}", file=sys.stderr)
+
 # Flask Routes
 @app.route('/')
 def index():
-    return render_template('dashboard_final.html', has_camera=True)
+    return render_template('agentic_dashboard.html', has_camera=True)
+
+@app.route('/api/last_alert')
+def get_last_alert():
+    return jsonify({
+        "message": last_alert_message,
+        "cooldown_remaining": max(0, int(ALERT_COOLDOWN - (time.time() - last_alert_time))),
+        "last_alert_ts": datetime.fromtimestamp(last_alert_time).strftime("%H:%M:%S") if last_alert_time else None,
+    })
 
 @app.route('/api/metrics')
 def get_metrics():
@@ -1085,6 +1166,11 @@ if __name__ == '__main__':
     # Start camera thread
     camera_thread = threading.Thread(target=camera_and_inference_thread, daemon=True)
     camera_thread.start()
+
+    # Start crowd alert agent thread
+    alert_thread = threading.Thread(target=crowd_alert_agent_thread, daemon=True)
+    alert_thread.start()
+    print("🤖 Crowd Alert Agent started (threshold: >2 persons, cooldown: 5 min)")
 
     print(f"\n🚀 Starting development server...")
     print(f"🌐 Dashboard: http://{FLASK_HOST}:{FLASK_PORT}")

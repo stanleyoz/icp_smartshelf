@@ -87,21 +87,52 @@ class HailoDetector:
                 print(f"DEBUG: Using device type: {device_type}")
                 self.device_type = device_type
 
-                # 3. Load model (exactly like test.py - no local model checking for now)
+                # 3. Load model using correct local syntax from Hailo documentation
                 inference_host_address = "@local"
-                zoo_url = "degirum/hailo"
-                token = ""
-
-                print(f"DEBUG: Loading model from DeGirum zoo: {self.model_name}")
                 
-                # Load AI model (exactly like test.py)
-                self.model = dg.load_model(
-                    model_name=self.model_name,
-                    inference_host_address=inference_host_address,
-                    zoo_url=zoo_url,
-                    token=token,
-                    device_type=device_type,
-                )
+                # Use zoo_url to point to local model directory
+                local_model_dir = os.path.abspath(f"./models/{self.model_name}")
+                print(f"DEBUG: Loading model from local directory: {local_model_dir}")
+                
+                if os.path.exists(local_model_dir):
+                    try:
+                        # Correct syntax: use zoo_url for local model directory
+                        self.model = dg.load_model(
+                            model_name=self.model_name,
+                            inference_host_address=inference_host_address,
+                            zoo_url=local_model_dir,
+                            device_type=device_type,
+                        )
+                        print(f"✅ Local model '{self.model_name}' loaded successfully from {local_model_dir}")
+                    except Exception as local_error:
+                        print(f"⚠️  Local model loading failed: {local_error}")
+                        print("   Attempting to list available models in directory...")
+                        try:
+                            # Try to connect and list models for debugging
+                            zoo_manager = dg.connect(
+                                inference_host_address=inference_host_address,
+                                zoo_url=local_model_dir
+                            )
+                            available_models = zoo_manager.list_models()
+                            print(f"   Available models in directory: {available_models}")
+                            if available_models:
+                                # Try loading the first available model
+                                first_model = available_models[0]
+                                print(f"   Trying to load first available model: {first_model}")
+                                self.model = dg.load_model(
+                                    model_name=first_model,
+                                    inference_host_address=inference_host_address,
+                                    zoo_url=local_model_dir,
+                                    device_type=device_type,
+                                )
+                                print(f"✅ Successfully loaded model: {first_model}")
+                            else:
+                                raise Exception("No models found in local directory")
+                        except Exception as debug_error:
+                            print(f"   Debug attempt failed: {debug_error}")
+                            raise Exception(f"Failed to load any model from {local_model_dir}")
+                else:
+                    raise Exception(f"Local model directory not found: {local_model_dir}")
 
                 print(f"✅ DeGirum model '{self.model_name}' loaded successfully.")
                 self.is_initialized = True

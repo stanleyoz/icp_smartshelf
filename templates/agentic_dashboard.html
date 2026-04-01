@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Supermarket Traffic Monitoring</title>
-    
+
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+
     <!-- Socket.IO -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
-    
+
     <style>
         * {
             margin: 0;
@@ -72,6 +72,30 @@
             0% { opacity: 1; }
             50% { opacity: 0.5; }
             100% { opacity: 1; }
+        }
+
+        /* Agent badge */
+        .agent-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 14px;
+            vertical-align: middle;
+        }
+
+        .agent-watching {
+            background-color: rgba(255, 165, 0, 0.25);
+            color: #ffd580;
+            border: 1px solid rgba(255, 165, 0, 0.5);
+        }
+
+        .agent-alert {
+            background-color: rgba(220, 53, 69, 0.3);
+            color: #ff8a8a;
+            border: 1px solid rgba(220, 53, 69, 0.6);
+            animation: pulse 1s infinite;
         }
 
         /* Metrics Grid */
@@ -318,6 +342,20 @@
             cursor: not-allowed;
         }
 
+        /* Agent button */
+        .agent-btn {
+            background: #e67e22;
+        }
+
+        .agent-btn:hover {
+            background: #ca6f1e;
+        }
+
+        .agent-btn.agent-active {
+            background: #dc3545;
+            animation: pulse 1s infinite;
+        }
+
         /* Summary Section */
         .summary-section {
             max-width: 800px;
@@ -381,12 +419,73 @@
             margin: 0;
         }
 
+        /* Crowd Alert Modal */
+        .crowd-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .crowd-modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 480px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border-top: 4px solid #dc3545;
+            text-align: center;
+        }
+
+        .crowd-modal-header {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: #dc3545;
+            margin-bottom: 16px;
+        }
+
+        .crowd-alert-count {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .crowd-alert-message {
+            font-size: 1em;
+            color: #444;
+            line-height: 1.6;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 3px solid #e67e22;
+            text-align: left;
+        }
+
+        .crowd-alert-meta {
+            font-size: 0.85em;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .crowd-modal-content .btn {
+            margin-top: 16px;
+        }
+
         /* Responsive Design */
         @media (max-width: 1024px) {
             .dashboard-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .metrics-grid {
                 grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             }
@@ -396,26 +495,26 @@
             .dashboard-container {
                 padding: 10px;
             }
-            
+
             .header h1 {
                 font-size: 2em;
             }
-            
+
             .metric-card .value {
                 font-size: 1.8em;
             }
-            
+
             .chart-container,
             .video-container {
                 height: 400px !important;
                 max-height: 400px !important;
             }
-            
+
             .chart-wrapper {
                 height: 330px !important;
                 max-height: 330px !important;
             }
-            
+
             .video-feed-wrapper {
                 height: 330px;
             }
@@ -458,6 +557,9 @@
             <div class="subtitle">
                 Real-time AI-powered person tracking and analytics
                 <span class="status-indicator status-online" id="connection-status"></span>
+                <span id="agent-status" class="agent-badge agent-watching">
+                    🤖 Crowd Alert Agent: Watching
+                </span>
             </div>
         </div>
 
@@ -526,6 +628,9 @@
         <!-- Controls -->
         <div class="controls">
             <button class="btn summarize" onclick="generateSummary()" id="summarize-btn">Summarize</button>
+            <button class="btn agent-btn" id="crowd-agent-btn" onclick="showLastAlert()">
+                🤖 Crowd Alert Agent
+            </button>
         </div>
 
         <!-- Summary Section -->
@@ -552,6 +657,18 @@
         <!-- Footer -->
         <div class="footer">
             <p>HAILO AI Person Detection System | Last Update: <span id="last-update">Never</span></p>
+        </div>
+    </div>
+
+    <!-- Crowd Alert Modal -->
+    <div id="crowd-alert-modal" class="crowd-modal" style="display:none;">
+        <div class="crowd-modal-content">
+            <div class="crowd-modal-header">⚠️ Crowd Alert Agent</div>
+            <div id="crowd-alert-count" class="crowd-alert-count"></div>
+            <div id="crowd-alert-message" class="crowd-alert-message"></div>
+            <div id="crowd-alert-time" class="crowd-alert-meta"></div>
+            <div style="font-size:0.9em; color:#666;">Next alert in: <span id="crowd-cooldown">5:00</span></div>
+            <button class="btn" onclick="dismissCrowdAlert()">Dismiss</button>
         </div>
     </div>
 
@@ -698,9 +815,9 @@
         function updateMetricsDisplay(metrics) {
             document.getElementById('current-count').textContent = metrics.current || 0;
             document.getElementById('unique-visitors').textContent = metrics.unique_visitors || 0;
-            document.getElementById('avg-5m').textContent = metrics.avg_5m || 0;  // Now showing count, no decimals
-            document.getElementById('avg-30m').textContent = metrics.avg_30m || 0;  // Now showing count, no decimals
-            document.getElementById('avg-60m').textContent = metrics.avg_60m || 0;  // Now showing count, no decimals
+            document.getElementById('avg-5m').textContent = metrics.avg_5m || 0;
+            document.getElementById('avg-30m').textContent = metrics.avg_30m || 0;
+            document.getElementById('avg-60m').textContent = metrics.avg_60m || 0;
             document.getElementById('daily-max').textContent = metrics.daily_max || 0;
         }
 
@@ -709,14 +826,14 @@
             const now = new Date();
             const timeLabel = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
             const timestamp = now.getTime();
-            
+
             realtimeLabels.push(timeLabel);
             realtimeData.push(currentCount);
             realtimeTimestamps.push(timestamp);
-            
+
             // Filter data based on current time window
             filterRealtimeData();
-            
+
             updateChart(realtimeChart, realtimeLabels, realtimeData);
         }
 
@@ -724,7 +841,7 @@
         function filterRealtimeData() {
             const now = Date.now();
             let cutoffTime;
-            
+
             if (currentTimeWindow === 'trading') {
                 // Trading day: from 08:00 today till now
                 const today = new Date();
@@ -734,11 +851,11 @@
                 // Regular time window in minutes
                 cutoffTime = now - (currentTimeWindow * 60 * 1000);
             }
-            
+
             const filteredData = [];
             const filteredLabels = [];
             const filteredTimestamps = [];
-            
+
             for (let i = 0; i < realtimeTimestamps.length; i++) {
                 if (realtimeTimestamps[i] >= cutoffTime) {
                     filteredData.push(realtimeData[i]);
@@ -746,7 +863,7 @@
                     filteredTimestamps.push(realtimeTimestamps[i]);
                 }
             }
-            
+
             // Update arrays with filtered data
             realtimeData = filteredData;
             realtimeLabels = filteredLabels;
@@ -757,17 +874,17 @@
         function changeTimeWindow() {
             const select = document.getElementById('time-window-select');
             const selectedValue = select.value;
-            
+
             if (selectedValue === 'trading') {
                 currentTimeWindow = 'trading';
             } else {
                 currentTimeWindow = parseInt(selectedValue);
             }
-            
+
             // Fetch historical data from server for the selected time window
             fetchRealtimeData(selectedValue);
         }
-        
+
         // Fetch real-time data for specific time window
         function fetchRealtimeData(timeWindow) {
             // If data was recently reset, don't fetch historical data - keep charts empty
@@ -779,7 +896,7 @@
                 updateChart(realtimeChart, realtimeLabels, realtimeData);
                 return;
             }
-            
+
             fetch(`/api/realtime/${timeWindow}`)
                 .then(response => response.json())
                 .then(data => {
@@ -787,10 +904,10 @@
                     realtimeLabels = data.labels;
                     realtimeData = data.data;
                     realtimeTimestamps = data.timestamps.map(ts => ts * 1000); // Convert to milliseconds
-                    
+
                     // Update chart with new data
                     updateChart(realtimeChart, realtimeLabels, realtimeData);
-                    
+
                     console.log(`Updated chart with ${data.data_points} data points for ${timeWindow} time window`);
                 })
                 .catch(error => {
@@ -824,6 +941,74 @@
                 document.getElementById('connection-status').className = 'status-indicator status-offline';
                 document.getElementById('video-status').textContent = 'Disconnected';
             });
+
+            // Crowd alert from server
+            socket.on('crowd_alert', function(data) {
+                showCrowdAlert(data);
+                startCooldownTimer(300);
+                document.getElementById('agent-status').className = 'agent-badge agent-alert';
+                document.getElementById('agent-status').textContent = '🤖 Crowd Alert Agent: ALERT';
+            });
+        }
+
+        // ── Crowd Alert Agent functions ──────────────────────────────────────
+
+        function showCrowdAlert(data) {
+            document.getElementById('crowd-alert-count').textContent = data.count + ' persons detected';
+            document.getElementById('crowd-alert-message').textContent = data.message;
+            document.getElementById('crowd-alert-time').textContent = 'Alert at ' + data.timestamp;
+            document.getElementById('crowd-alert-modal').style.display = 'flex';
+            document.getElementById('crowd-agent-btn').classList.add('agent-active');
+        }
+
+        function dismissCrowdAlert() {
+            document.getElementById('crowd-alert-modal').style.display = 'none';
+            document.getElementById('crowd-agent-btn').classList.remove('agent-active');
+            document.getElementById('agent-status').className = 'agent-badge agent-watching';
+            document.getElementById('agent-status').textContent = '🤖 Crowd Alert Agent: Watching';
+            if (cooldownInterval) {
+                clearInterval(cooldownInterval);
+                cooldownInterval = null;
+            }
+        }
+
+        function showLastAlert() {
+            fetch('/api/last_alert').then(r => r.json()).then(data => {
+                if (data.last_alert_ts) {
+                    showCrowdAlert({
+                        count: document.getElementById('current-count').textContent,
+                        message: data.message,
+                        timestamp: data.last_alert_ts
+                    });
+                    if (data.cooldown_remaining > 0) {
+                        startCooldownTimer(data.cooldown_remaining);
+                    }
+                } else {
+                    alert('No alerts have been fired yet. The agent is watching for >2 persons.');
+                }
+            });
+        }
+
+        let cooldownInterval = null;
+
+        function startCooldownTimer(seconds) {
+            if (cooldownInterval) clearInterval(cooldownInterval);
+            let remaining = seconds;
+            const interval = setInterval(() => {
+                remaining--;
+                const m = Math.floor(remaining / 60);
+                const s = remaining % 60;
+                document.getElementById('crowd-cooldown').textContent =
+                    m + ':' + String(s).padStart(2, '0');
+                if (remaining <= 0) {
+                    clearInterval(interval);
+                    cooldownInterval = null;
+                    document.getElementById('crowd-agent-btn').classList.remove('agent-active');
+                    document.getElementById('agent-status').className = 'agent-badge agent-watching';
+                    document.getElementById('agent-status').textContent = '🤖 Crowd Alert Agent: Watching';
+                }
+            }, 1000);
+            cooldownInterval = interval;
         }
 
         // Utility functions
@@ -833,18 +1018,18 @@
                     .then(response => response.json())
                     .then(data => {
                         showSuccess('All tracking data and files reset successfully');
-                        
+
                         // Set flag to prevent loading historical data
                         dataRecentlyReset = true;
-                        
+
                         // Clear local chart data completely
                         realtimeLabels = [];
                         realtimeData = [];
                         realtimeTimestamps = [];
-                        
+
                         // Update charts with empty data immediately
                         updateChart(realtimeChart, realtimeLabels, realtimeData);
-                        
+
                         // Reset metrics display to zero immediately
                         document.getElementById('current-count').textContent = '0';
                         document.getElementById('unique-visitors').textContent = '0';
@@ -852,13 +1037,13 @@
                         document.getElementById('avg-30m').textContent = '0';
                         document.getElementById('avg-60m').textContent = '0';
                         document.getElementById('daily-max').textContent = '0';
-                        
+
                         // Clear the reset flag after 30 seconds to allow normal operation
                         setTimeout(() => {
                             dataRecentlyReset = false;
                             console.log('Reset flag cleared - normal data fetching resumed');
                         }, 30000);
-                        
+
                         // Wait a moment for server to complete reset, then fetch fresh data
                         setTimeout(() => {
                             fetchMetrics();
@@ -891,17 +1076,17 @@
             const summarySection = document.getElementById('summary-section');
             const summaryContent = document.getElementById('summary-content');
             const summaryMeta = document.getElementById('summary-meta');
-            
+
             // Disable button and show loading state
             summarizeBtn.disabled = true;
             summarizeBtn.textContent = 'Generating...';
-            
+
             // Show summary section with loading message
             summarySection.classList.add('show');
             summaryContent.innerHTML = '<div class="loading">Generating AI summary...</div>';
             summaryMeta.textContent = '';
-            
-            fetch('/api/summarize', { 
+
+            fetch('/api/summarize', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -912,14 +1097,14 @@
                 if (data.error) {
                     throw new Error(data.error);
                 }
-                
+
                 // Display summary
                 summaryContent.innerHTML = data.summary;
-                summaryMeta.textContent = `Generated at ${new Date(data.timestamp).toLocaleTimeString()} | 
-                    Current: ${data.data_used.current_count} people | 
-                    Daily visitors: ${data.data_used.unique_visitors} | 
+                summaryMeta.textContent = `Generated at ${new Date(data.timestamp).toLocaleTimeString()} |
+                    Current: ${data.data_used.current_count} people |
+                    Daily visitors: ${data.data_used.unique_visitors} |
                     Hours since opening: ${data.data_used.hours_since_opening}h`;
-                
+
                 showSuccess('AI summary generated successfully');
             })
             .catch(error => {
@@ -936,12 +1121,10 @@
         }
 
         function showError(message) {
-            // You can implement a toast notification system here
             console.error(message);
         }
 
         function showSuccess(message) {
-            // You can implement a toast notification system here
             console.log(message);
         }
 
@@ -966,19 +1149,29 @@
         // Initialize everything when page loads
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Dashboard loading...');
-            
+
             initializeCharts();
             initializeSocket();
-            
+
             // Load initial 5-minute data for real-time chart
             fetchRealtimeData('5');
-            
+
             // Initial data fetch
             fetchMetrics();
-            
+
+            // Restore alert state if within cooldown window
+            fetch('/api/last_alert').then(r => r.json()).then(data => {
+                if (data.cooldown_remaining > 0) {
+                    document.getElementById('crowd-agent-btn').classList.add('agent-active');
+                    document.getElementById('agent-status').className = 'agent-badge agent-alert';
+                    document.getElementById('agent-status').textContent = '🤖 Crowd Alert Agent: ALERT';
+                    startCooldownTimer(data.cooldown_remaining);
+                }
+            });
+
             // Set up periodic updates
             setInterval(fetchMetrics, 2000);        // Every 2 seconds
-            
+
             console.log('Dashboard loaded successfully');
         });
 

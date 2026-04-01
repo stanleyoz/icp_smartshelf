@@ -1,0 +1,23 @@
+[Unit]
+Description=Supermarket Traffic Monitoring System
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=icp
+Group=icp
+WorkingDirectory=/home/icp/g_traffic
+Environment=PATH=/home/icp/g_traffic/venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/icp/g_traffic/venv/bin/python3 /home/icp/g_traffic/agentic_monitoring.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Set environment variables for HAILO/GPU access
+Environment=DISPLAY=:0
+Environment=GPU_FORCE_64BIT_PTR=1
+
+[Install]
+WantedBy=multi-user.target

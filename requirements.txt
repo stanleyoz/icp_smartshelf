@@ -29,3 +29,8 @@ netifaces==0.11.0
 # Development utilities
 python-dateutil==2.8.2
 pytz==2022.7.1
+
+# Agentic monitoring (LangChain crowd alert agent)
+langchain>=0.3.0
+langchain-openai>=0.2.0
+requests>=2.28.0
