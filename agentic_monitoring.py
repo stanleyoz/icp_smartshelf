@@ -121,6 +121,17 @@ sensor_last_updated = None
 _meraki_org_id  = None
 _meraki_serial  = None
 
+# Temperature history (2 hours at 15s intervals = 480 points)
+sensor_temp_history    = deque(maxlen=480)
+sensor_temp_timestamps = deque(maxlen=480)
+
+# Temperature alert thresholds and cooldown
+TEMP_MIN_NORMAL    = 18.0   # °C — too cold below this
+TEMP_MAX_NORMAL    = 26.0   # °C — too warm above this
+TEMP_ALERT_COOLDOWN = 300   # seconds between temp alerts
+last_temp_alert_time    = 0
+last_temp_alert_message = ""
+
 # Crowd alert cooldown state
 last_alert_time = 0          # epoch seconds
 ALERT_COOLDOWN = 60          # 1 minute cooldown
@@ -852,6 +863,31 @@ def _send_slack(message: str) -> bool:
     resp = requests.post(SLACK_WEBHOOK_URL, json={"text": message}, timeout=5)
     return resp.status_code == 200
 
+def _send_temp_alert(temp: float, alert_type: str):
+    """Send a Too Cold / Too Warm alert to Slack and broadcast via SocketIO."""
+    global last_temp_alert_time, last_temp_alert_message
+    now = time.time()
+    if (now - last_temp_alert_time) < TEMP_ALERT_COOLDOWN:
+        return
+    emoji = "🥶" if alert_type == "Too Cold" else "🥵"
+    message = (
+        f"{emoji} *Temperature Alert — {alert_type}*\n"
+        f"Current: *{temp:.1f}°C*  |  Normal range: {TEMP_MIN_NORMAL}–{TEMP_MAX_NORMAL}°C\n"
+        f"Sensor: Meraki MT10  |  Time: {datetime.now().strftime('%H:%M:%S')}"
+    )
+    sent = _send_slack(message)
+    last_temp_alert_time = now
+    last_temp_alert_message = message
+    socketio.emit("temp_alert", {
+        "type": alert_type,
+        "temperature": round(temp, 1),
+        "message": message,
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "temp_min": TEMP_MIN_NORMAL,
+        "temp_max": TEMP_MAX_NORMAL,
+    })
+    print(f"🌡  Temp alert {'sent' if sent else '(Slack skipped)'}: {alert_type} ({temp:.1f}°C)")
+
 def crowd_alert_agent_thread():
     global last_alert_time, last_alert_message
     while not stop_event.is_set():
@@ -1161,6 +1197,14 @@ def _meraki_fetch_readings():
                     metric = reading.get("metric")
                     if metric == "temperature":
                         sensor_temperature = reading["temperature"]["celsius"]
+                        # Store in history buffer
+                        sensor_temp_history.append(sensor_temperature)
+                        sensor_temp_timestamps.append(time.time())
+                        # Check out-of-bounds and alert
+                        if sensor_temperature < TEMP_MIN_NORMAL:
+                            _send_temp_alert(sensor_temperature, "Too Cold")
+                        elif sensor_temperature > TEMP_MAX_NORMAL:
+                            _send_temp_alert(sensor_temperature, "Too Warm")
                     elif metric == "humidity":
                         sensor_humidity = reading["humidity"]["relativePercentage"]
                 sensor_last_updated = datetime.now().isoformat()
@@ -1182,7 +1226,36 @@ def get_sensor():
         'temperature': sensor_temperature,
         'humidity': sensor_humidity,
         'last_updated': sensor_last_updated,
+        'temp_min': TEMP_MIN_NORMAL,
+        'temp_max': TEMP_MAX_NORMAL,
     })
+
+@app.route('/api/sensor/history')
+def get_sensor_history():
+    """Return temperature history for the last 2 hours."""
+    two_hours_ago = time.time() - 7200
+    labels, data = [], []
+    for i, ts in enumerate(sensor_temp_timestamps):
+        if ts >= two_hours_ago:
+            labels.append(datetime.fromtimestamp(ts).strftime('%H:%M'))
+            data.append(round(sensor_temp_history[i], 2))
+    return jsonify({
+        'labels': labels,
+        'data': data,
+        'temp_min': TEMP_MIN_NORMAL,
+        'temp_max': TEMP_MAX_NORMAL,
+    })
+
+@app.route('/api/temp_thresholds', methods=['GET', 'POST'])
+def temp_thresholds():
+    """Get or update temperature normal range thresholds."""
+    global TEMP_MIN_NORMAL, TEMP_MAX_NORMAL
+    if request.method == 'POST':
+        body = request.get_json()
+        TEMP_MIN_NORMAL = float(body.get('temp_min', TEMP_MIN_NORMAL))
+        TEMP_MAX_NORMAL = float(body.get('temp_max', TEMP_MAX_NORMAL))
+        print(f"🌡  Temp thresholds updated: min={TEMP_MIN_NORMAL}°C max={TEMP_MAX_NORMAL}°C")
+    return jsonify({'temp_min': TEMP_MIN_NORMAL, 'temp_max': TEMP_MAX_NORMAL})
 
 @socketio.on('connect')
 def handle_connect():

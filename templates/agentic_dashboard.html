@@ -579,6 +579,139 @@
             margin-top: 16px;
         }
 
+        /* Temperature chart modal */
+        .temp-chart-modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .temp-chart-content {
+            background: white;
+            border-radius: 12px;
+            padding: 28px;
+            width: 90%;
+            max-width: 720px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border-top: 4px solid #17a2b8;
+        }
+
+        .temp-chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .temp-chart-header h3 {
+            color: #17a2b8;
+            font-size: 1.2em;
+            margin: 0;
+        }
+
+        .temp-chart-wrapper {
+            height: 280px;
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .temp-threshold-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+
+        .temp-threshold-row label {
+            font-size: 0.9em;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .temp-threshold-row input[type=number] {
+            width: 70px;
+            padding: 6px 8px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.95em;
+            text-align: center;
+        }
+
+        .temp-threshold-row input[type=number]:focus {
+            outline: none;
+            border-color: #17a2b8;
+        }
+
+        /* Out-of-bounds badge on sensor card */
+        .sensor-oob-badge {
+            display: inline-block;
+            font-size: 0.7em;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-top: 4px;
+            animation: pulse 1.5s infinite;
+        }
+
+        .sensor-oob-cold { background: #cce5ff; color: #004085; }
+        .sensor-oob-warm { background: #f8d7da; color: #721c24; }
+
+        /* Clickable sensor card */
+        .metric-card.sensor-temp {
+            cursor: pointer;
+        }
+
+        .metric-card.sensor-temp:hover {
+            box-shadow: 0 4px 20px rgba(23, 162, 184, 0.3);
+        }
+
+        /* Temp alert modal (reuses crowd-modal overlay) */
+        .temp-alert-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 460px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border-top: 4px solid #17a2b8;
+            text-align: center;
+        }
+
+        .temp-alert-header {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: #17a2b8;
+            margin-bottom: 16px;
+        }
+
+        .temp-alert-value {
+            font-size: 2.4em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .temp-alert-message {
+            font-size: 0.95em;
+            color: #444;
+            line-height: 1.6;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 3px solid #17a2b8;
+            text-align: left;
+            white-space: pre-line;
+        }
+
         /* Responsive Design */
         @media (max-width: 1024px) {
             .dashboard-grid {
@@ -687,11 +820,12 @@
                 <div class="value" id="daily-max">0</div>
                 <div class="change">Peak activity</div>
             </div>
-            <div class="metric-card sensor-temp">
+            <div class="metric-card sensor-temp" onclick="openTempChart()" title="Click to view history">
                 <img class="meraki-logo-card" src="/static/meraki-logo.png" alt="Cisco Meraki">
                 <h3>Temperature</h3>
                 <div class="value" id="sensor-temp">--</div>
                 <div class="change">°C</div>
+                <div id="temp-oob-badge"></div>
             </div>
             <div class="metric-card sensor-hum">
                 <img class="meraki-logo-card" src="/static/meraki-logo.png" alt="Cisco Meraki">
@@ -773,6 +907,39 @@
     </div>
 
     <!-- Crowd Alert Modal -->
+    <!-- Temperature History Chart Modal -->
+    <div id="temp-chart-modal" class="temp-chart-modal" style="display:none;" onclick="closeTempChartOutside(event)">
+        <div class="temp-chart-content">
+            <div class="temp-chart-header">
+                <h3>🌡 Temperature History — Last 2 Hours</h3>
+                <button class="btn" onclick="closeTempChart()" style="padding:6px 14px;">✕ Close</button>
+            </div>
+            <div class="temp-chart-wrapper">
+                <canvas id="temp-history-chart"></canvas>
+            </div>
+            <div class="temp-threshold-row">
+                <label>Normal Range:</label>
+                <label>Min °C</label>
+                <input type="number" id="input-temp-min" step="0.5" value="18.0">
+                <label>Max °C</label>
+                <input type="number" id="input-temp-max" step="0.5" value="26.0">
+                <button class="btn summarize" onclick="saveTempThresholds()" style="padding:6px 16px;">Save</button>
+                <span id="threshold-save-msg" style="font-size:0.85em;color:#28a745;display:none;">✓ Saved</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Temperature Alert Modal -->
+    <div id="temp-alert-modal" class="crowd-modal" style="display:none;">
+        <div class="temp-alert-content">
+            <div class="temp-alert-header" id="temp-alert-header">🌡 Temperature Alert</div>
+            <div class="temp-alert-value" id="temp-alert-value"></div>
+            <div class="temp-alert-message" id="temp-alert-message"></div>
+            <div class="crowd-alert-meta" id="temp-alert-time"></div>
+            <button class="btn" onclick="dismissTempAlert()">Dismiss</button>
+        </div>
+    </div>
+
     <div id="crowd-alert-modal" class="crowd-modal" style="display:none;">
         <div class="crowd-modal-content">
             <div class="crowd-modal-header">⚠️ Crowd Alert Agent</div>
@@ -787,12 +954,15 @@
     <script>
         // Global variables
         let realtimeChart;
+        let tempHistoryChart = null;
         let socket;
         let realtimeLabels = [];
         let realtimeData = [];
         let realtimeTimestamps = [];
         let currentTimeWindow = 5; // Current selected time window in minutes
         let dataRecentlyReset = false; // Flag to track if data was recently reset
+        let currentTempMin = 18.0;
+        let currentTempMax = 26.0;
 
         // Chart configuration
         const chartConfig = {
@@ -936,15 +1106,146 @@
             fetch('/api/sensor')
                 .then(r => r.json())
                 .then(data => {
+                    const temp = data.temperature;
                     document.getElementById('sensor-temp').textContent =
-                        data.temperature !== null ? parseFloat(data.temperature).toFixed(1) : '--';
+                        temp !== null ? parseFloat(temp).toFixed(1) : '--';
                     document.getElementById('sensor-hum').textContent =
                         data.humidity !== null ? data.humidity : '--';
+                    // Sync thresholds from server
+                    if (data.temp_min !== undefined) currentTempMin = data.temp_min;
+                    if (data.temp_max !== undefined) currentTempMax = data.temp_max;
+                    // Out-of-bounds badge
+                    const badge = document.getElementById('temp-oob-badge');
+                    if (temp !== null) {
+                        if (temp < currentTempMin) {
+                            badge.innerHTML = '<span class="sensor-oob-badge sensor-oob-cold">🥶 Too Cold</span>';
+                        } else if (temp > currentTempMax) {
+                            badge.innerHTML = '<span class="sensor-oob-badge sensor-oob-warm">🥵 Too Warm</span>';
+                        } else {
+                            badge.innerHTML = '';
+                        }
+                    }
                 })
                 .catch(() => {
                     document.getElementById('sensor-temp').textContent = '--';
                     document.getElementById('sensor-hum').textContent = '--';
                 });
+        }
+
+        // ── Temperature History Chart ─────────────────────────────────────────
+
+        function openTempChart() {
+            document.getElementById('temp-chart-modal').style.display = 'flex';
+            document.getElementById('input-temp-min').value = currentTempMin;
+            document.getElementById('input-temp-max').value = currentTempMax;
+            fetch('/api/sensor/history')
+                .then(r => r.json())
+                .then(data => renderTempChart(data));
+        }
+
+        function closeTempChart() {
+            document.getElementById('temp-chart-modal').style.display = 'none';
+        }
+
+        function closeTempChartOutside(event) {
+            if (event.target === document.getElementById('temp-chart-modal')) closeTempChart();
+        }
+
+        function renderTempChart(data) {
+            const labels = data.labels;
+            const values = data.data;
+            const tMin = data.temp_min;
+            const tMax = data.temp_max;
+            const minLine = labels.map(() => tMin);
+            const maxLine = labels.map(() => tMax);
+
+            const ctx = document.getElementById('temp-history-chart').getContext('2d');
+            if (tempHistoryChart) tempHistoryChart.destroy();
+            tempHistoryChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Temperature (°C)',
+                            data: values,
+                            borderColor: '#17a2b8',
+                            backgroundColor: 'rgba(23,162,184,0.1)',
+                            borderWidth: 2,
+                            pointRadius: 2,
+                            fill: true,
+                            tension: 0.3,
+                        },
+                        {
+                            label: `Min (${tMin}°C)`,
+                            data: minLine,
+                            borderColor: '#007bff',
+                            borderWidth: 1.5,
+                            borderDash: [6, 4],
+                            pointRadius: 0,
+                            fill: false,
+                        },
+                        {
+                            label: `Max (${tMax}°C)`,
+                            data: maxLine,
+                            borderColor: '#dc3545',
+                            borderWidth: 1.5,
+                            borderDash: [6, 4],
+                            pointRadius: 0,
+                            fill: false,
+                        },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { ticks: { maxTicksLimit: 10, maxRotation: 0 } },
+                        y: { title: { display: true, text: '°C' } }
+                    },
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
+        }
+
+        function saveTempThresholds() {
+            const tMin = parseFloat(document.getElementById('input-temp-min').value);
+            const tMax = parseFloat(document.getElementById('input-temp-max').value);
+            if (isNaN(tMin) || isNaN(tMax) || tMin >= tMax) {
+                alert('Invalid range — Min must be less than Max.');
+                return;
+            }
+            fetch('/api/temp_thresholds', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ temp_min: tMin, temp_max: tMax })
+            })
+            .then(r => r.json())
+            .then(data => {
+                currentTempMin = data.temp_min;
+                currentTempMax = data.temp_max;
+                const msg = document.getElementById('threshold-save-msg');
+                msg.style.display = 'inline';
+                setTimeout(() => { msg.style.display = 'none'; }, 2000);
+                // Re-render chart with updated threshold lines
+                fetch('/api/sensor/history').then(r => r.json()).then(d => renderTempChart(d));
+            });
+        }
+
+        // ── Temperature Alert functions ───────────────────────────────────────
+
+        function showTempAlert(data) {
+            const emoji = data.type === 'Too Cold' ? '🥶' : '🥵';
+            document.getElementById('temp-alert-header').textContent = emoji + ' Temperature Alert — ' + data.type;
+            document.getElementById('temp-alert-value').textContent = data.temperature + '°C';
+            document.getElementById('temp-alert-message').textContent =
+                `Normal range: ${data.temp_min}–${data.temp_max}°C`;
+            document.getElementById('temp-alert-time').textContent = 'Alert at ' + data.timestamp;
+            document.getElementById('temp-alert-modal').style.display = 'flex';
+        }
+
+        function dismissTempAlert() {
+            document.getElementById('temp-alert-modal').style.display = 'none';
         }
 
         // Update real-time chart
@@ -1074,6 +1375,11 @@
                 startCooldownTimer(300);
                 document.getElementById('agent-status').className = 'agent-badge agent-alert';
                 document.getElementById('agent-status').textContent = '🤖 Crowd Alert Agent: ALERT';
+            });
+
+            // Temperature alert from server
+            socket.on('temp_alert', function(data) {
+                showTempAlert(data);
             });
         }
 
