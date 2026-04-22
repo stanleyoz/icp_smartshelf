@@ -1,285 +1,177 @@
 # Shopper Traffic Monitoring and Analysis System
 
-An AI-powered traffic monitoring system built for supermarket environments, utilizing computer vision and edge AI inference on Raspberry Pi 5 hardware to track and analyze customer traffic patterns in real-time.
+An AI-powered traffic monitoring system built for supermarket environments, utilizing computer vision and edge AI inference on Raspberry Pi 5 hardware to track and analyze customer traffic patterns in real-time. The system includes an agentic crowd alert agent, OpenAI-powered summaries, and live environmental sensor readings via Cisco Meraki.
 
 ## Project Overview
 
-This system provides comprehensive shopper traffic monitoring capabilities including:
-- **Real-time person detection and tracking** using Pi Camera or webcam
-- **Advanced AI inference** with HAILO-8 accelerator for edge computing
-- **Live web dashboard** with real-time metrics and video feed
-- **Persistent data logging** with CSV export and historical analysis
-- **LLM-powered insights** integration with OpenAI API for business intelligence
-- **Time-based analytics** including daily, hourly, and rolling window metrics
-
-Built specifically for retail environments, the system tracks unique visitors, occupancy levels, movement patterns, and provides actionable insights for operational decision-making.
+- **Real-time person detection and tracking** using Pi Camera (PiCamera2) or webcam
+- **Edge AI inference** with HAILO-8 accelerator via DeGirum PySDK
+- **Live web dashboard** with real-time metrics, video feed, and historical charts
+- **Agentic crowd alert** — AI agent monitors occupancy and triggers Slack alerts when thresholds are exceeded
+- **Environmental monitoring** — Cisco Meraki MT10 sensor provides live temperature and humidity readings
+- **LLM-powered summaries** via OpenAI API for on-demand business intelligence
+- **Persistent data logging** with CSV export and automatic daily reset at 08:00
 
 ## Hardware Requirements
 
-### Required Hardware
+### Required
 - **Raspberry Pi 5** (8GB recommended)
 - **Pi Camera Module 3** or compatible USB webcam
-- **HAILO-8 AI Accelerator** (optional, falls back to simulation)
-- **MicroSD Card** (32GB+ Class 10)
-- **Power Supply** (27W USB-C for Pi 5)
 
-### Optional Hardware
+### Optional / Supported
+- **HAILO-8 AI Accelerator** (falls back to simulation if not present)
+- **Cisco Meraki MT10** temperature and humidity sensor (requires Meraki Dashboard API access)
 - **PoE+ HAT** for network-powered deployment
-- **Cooling fan/heatsink** for continuous operation
-- **Enclosure** for retail environment protection
+- **Cooling fan / heatsink** for continuous operation
 
 ## Software Setup
 
-### Prerequisites
-
-1. **Install Raspberry Pi OS** (64-bit recommended)
+### 1. Clone the repository
 ```bash
-# Update system
-sudo apt update && sudo apt upgrade -y
-
-# Install Python 3.11+ and pip
-sudo apt install python3 python3-pip python3-venv git -y
+git clone https://github.com/stanleyoz/icp_smartshelf.git
+cd icp_smartshelf
 ```
 
-2. **Clone the repository**
-```bash
-git clone <repository-url>
-cd g_traffic
-```
-
-3. **Create virtual environment**
+### 2. Create virtual environment and install dependencies
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-```
-
-4. **Install dependencies**
-```bash
 pip install -r requirements.txt
 ```
 
-### Configuration
+### 3. Configuration
 
-1. **Hardware Configuration**
-   - Edit `config_dev.py` to match your hardware setup
-   - Set camera source (picamera2/webcam)
-   - Configure inference mode (hailo/simulation)
+**Hardware** — Edit `config_dev.py` to match your setup:
+- Camera source: `picamera2` (auto-detected) or `webcam`
+- Inference mode: `hailo` via DeGirum, or `simulation`
+- Flask host/port (default `0.0.0.0:5000`)
 
-2. **OpenAI API Setup** (optional)
-   - Create `openai.txt` with your API key for LLM insights
-   - Required for AI-powered traffic summaries
-
-3. **Network Configuration**
-   - Default dashboard runs on `http://localhost:5000`
-   - Edit `FLASK_HOST` in config for remote access
-
-## System Operation
-
-### Starting the System
-
-1. **Development Mode**
-```bash
-python3 dev_monitor.py
+**OpenAI** — Create `openai.txt` with your API key:
+```
+sk-...your-key-here...
 ```
 
-2. **Background Execution** (for remote SSH deployments)
-```bash
-nohup python3 dev_monitor.py &
+**Slack Alerts** — Create `slack.txt` with your Slack incoming webhook URL:
+```
+https://hooks.slack.com/services/...
 ```
 
-3. **Production Deployment** (Autostart on Boot)
+**Meraki MT10 Sensor** — Set your API key and sensor MAC address in `agentic_monitoring.py`:
+```python
+MERAKI_API_KEY  = "your-meraki-api-key"
+MERAKI_MT10_MAC = "aa:bb:cc:dd:ee:ff"
+```
+The system auto-discovers the sensor serial number at startup by walking your Meraki organisation.
+
+## Running the System
+
+### Foreground (development / testing)
 ```bash
-# Use the install script (recommended)
+source venv/bin/activate
+python agentic_monitoring.py
+```
+
+### Background (SSH / headless deployment)
+```bash
+source venv/bin/activate
+nohup python agentic_monitoring.py > nohup.out 2>&1 &
+tail -f nohup.out   # monitor startup
+```
+
+### Autostart on Boot (production)
+```bash
 chmod +x install_autostart.sh
 ./install_autostart.sh
-
-# Or manually install the systemd service
+```
+Or install the systemd service manually:
+```bash
 sudo cp traffic-monitor.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable traffic-monitor
 sudo systemctl start traffic-monitor
 ```
 
-**Service management commands:**
+**Service management:**
 ```bash
-sudo systemctl status traffic-monitor   # Check status
-sudo systemctl stop traffic-monitor     # Stop service
-sudo journalctl -u traffic-monitor -f   # View live logs
+sudo systemctl status traffic-monitor
+sudo systemctl stop traffic-monitor
+sudo journalctl -u traffic-monitor -f
 ```
 
-4. **Agentic Monitoring Mode** (experimental)
-```bash
-python3 agentic_monitoring.py
+### Access the Dashboard
+Open a browser to `http://[pi-ip-address]:5000`
+
+## Dashboard Features
+
+### Metrics Grid
+| Widget | Description |
+|---|---|
+| Current Count | People detected in frame right now |
+| 5min Count | Unique people detected in last 5 minutes |
+| 60min Count | Unique people detected in last 60 minutes |
+| Daily Maximum | Peak concurrent occupancy since 08:00 |
+| Temperature | Live °C reading from Meraki MT10 |
+| Humidity | Live %RH reading from Meraki MT10 |
+
+### Live Camera Feed
+Real-time video with person detection bounding boxes and tracking overlays.
+
+### Historical Chart
+Configurable time-window chart (5min / 30min / 1hr / trading day) showing occupancy over time.
+
+### Agentic Crowd Alert
+An AI agent continuously monitors current occupancy. When the threshold is exceeded it:
+- Sends an alert message to Slack via webhook
+- Pops up a modal notification on the dashboard
+- Enforces a cooldown period (default 60 seconds) to avoid alert spam
+- Can be toggled on/off from the dashboard without restarting
+
+The alert message is generated by OpenAI based on current traffic context.
+
+### AI Summary
+On-demand LLM summary of current traffic conditions, generated via the **Summarize** button.
+
+### Data Management
+- **Reset Counter** — clears in-memory tracking (keeps CSV files)
+- **Reset ALL Data** — clears both in-memory state and all trackinglog CSV files
+- Daily automatic reset of all counters at 08:00 (store opening)
+
+## File Structure
 ```
-
-4. **Access Dashboard**
-   - Open browser to `http://[pi-ip-address]:5000`
-   - View live camera feed and real-time metrics
-
-### Key Features
-
-#### Real-Time Monitoring
-- **Live video feed** with person detection overlays
-- **Current occupancy** count with confidence indicators
-- **Unique visitor tracking** with persistent daily totals
-- **Movement pattern analysis** (directional flow)
-
-#### Analytics Dashboard
-- **Time-based metrics**: 1min, 5min, 30min, hourly windows
-- **Daily performance**: Peak counts, visitor totals since 08:00
-- **Historical charts**: Real-time data visualization
-- **Movement patterns**: Traffic flow analysis
-
-#### Data Management
-- **Persistent storage**: CSV logging with automatic rotation
-- **Daily reset**: Automatic data reset at store opening (08:00)
-- **Export capabilities**: Historical data export
-- **Backup system**: Automatic file management
-
-#### AI Integration
-- **Edge inference**: HAILO-8 accelerated person detection
-- **LLM insights**: OpenAI-powered traffic summaries
-- **Pattern recognition**: Advanced tracking algorithms
-- **Confidence filtering**: Configurable detection thresholds
-
-## Use Cases and Development Paths
-
-### Immediate Supermarket Applications
-
-#### Store Operations
-- **Staff scheduling optimization**: Real-time data for shift planning
-- **Queue management**: Monitor checkout area traffic
-- **Security enhancement**: Unusual pattern detection
-- **Customer service**: Peak time identification for support staffing
-
-#### Business Intelligence
-- **Peak hour analysis**: Identify busiest shopping periods
-- **Seasonal patterns**: Track traffic variations over time
-- **Space utilization**: Monitor department-specific traffic
-- **Marketing effectiveness**: Measure promotional impact on foot traffic
-
-### Supermarket Chain Integration
-
-#### AWS Cloud Integration
-```
-Local Pi Devices → AWS IoT Core → Lambda Functions → DynamoDB/S3
-                                      ↓
-                           QuickSight Dashboards ← SNS Alerts
-```
-
-**Implementation Path:**
-1. **AWS IoT Core**: Secure device communication and data ingestion
-2. **AWS Lambda**: Real-time data processing and alerting
-3. **Amazon DynamoDB**: High-performance traffic data storage
-4. **Amazon S3**: Long-term data archival and analytics
-5. **Amazon QuickSight**: Chain-wide dashboard and reporting
-6. **Amazon SNS**: Alert system for anomaly detection
-
-#### Multi-Store Deployment
-- **Centralized monitoring**: Chain-wide traffic dashboard
-- **Comparative analytics**: Store performance benchmarking
-- **Predictive modeling**: ML-based traffic forecasting
-- **Inventory optimization**: Traffic-based stock management
-
-#### Advanced Analytics Integration
-- **Amazon SageMaker**: Custom ML model development
-- **AWS Kinesis**: Real-time data streaming
-- **Amazon Athena**: SQL queries on historical data
-- **AWS Glue**: ETL pipelines for data transformation
-
-### Enterprise Features
-
-#### Scalability Enhancements
-- **Load balancing**: Multiple camera inputs per store
-- **Edge computing**: Distributed inference processing
-- **Data federation**: Multi-location data aggregation
-- **API gateway**: Standardized data access
-
-#### Compliance and Security
-- **GDPR compliance**: Privacy-focused person tracking
-- **Data encryption**: End-to-end security
-- **Audit logging**: Complete system traceability
-- **Role-based access**: Hierarchical user permissions
-
-#### Integration Capabilities
-- **POS system integration**: Correlate traffic with sales
-- **ERP connectivity**: Link to inventory management
-- **CRM integration**: Customer journey analysis
-- **Weather API**: External factor correlation
-
-### Future Development Roadmap
-
-#### Phase 1: Enhanced Analytics
-- **Heat mapping**: Store layout optimization
-- **Dwell time analysis**: Customer engagement metrics
-- **Conversion tracking**: Traffic to sales correlation
-- **A/B testing**: Layout change impact measurement
-
-#### Phase 2: Predictive Intelligence
-- **Demand forecasting**: ML-based traffic prediction
-- **Staffing optimization**: Automated schedule recommendations
-- **Inventory alerts**: Traffic-based restocking triggers
-- **Marketing automation**: Dynamic promotional content
-
-#### Phase 3: Ecosystem Integration
-- **Supply chain integration**: Vendor collaboration
-- **Customer app integration**: Personalized shopping experiences
-- **Smart building systems**: HVAC and lighting optimization
-- **Competitive intelligence**: Market trend analysis
-
-## Technical Architecture
-
-### File Structure
-```
-g_traffic/
-├── dev_monitor.py                  # Main Flask application
-├── agentic_monitoring.py           # Agentic LLM-driven monitoring (experimental)
-├── o4_hailo_detection_module.py    # O4 camera + HAILO-8 detection integration
-├── config_dev.py                   # Hardware detection and configuration
-├── install_autostart.sh            # Autostart service installer
+icp_smartshelf/
+├── agentic_monitoring.py           # Main application (Flask + inference + agents)
+├── o4_hailo_detection_module.py    # HAILO-8 detection via DeGirum PySDK
+├── config_dev.py                   # Hardware detection and app configuration
+├── install_autostart.sh            # Systemd autostart installer
 ├── traffic-monitor.service         # Systemd service definition
 ├── requirements.txt                # Python dependencies
 ├── templates/
-│   ├── dashboard_final.html        # Main web dashboard
-│   └── agentic_dashboard.html      # Agentic mode dashboard
-├── models/                         # HAILO quantized model files
-├── trackinglog/                    # CSV tracking data logs
-└── openai.txt                      # OpenAI API key (not committed)
+│   └── agentic_dashboard.html      # Web dashboard (HTML/CSS/JS)
+├── static/
+│   └── meraki-logo.png             # Cisco Meraki logo (served locally)
+├── trackinglog/                    # CSV tracking logs (auto-created)
+├── openai.txt                      # OpenAI API key (not committed)
+└── slack.txt                       # Slack webhook URL (not committed)
 ```
 
-### System Components
-- **Detection Engine**: OpenCV + HAILO-8 inference (O4 camera optimised)
-- **Tracking System**: Multi-object tracking with ID persistence
-- **Web Framework**: Flask + SocketIO for real-time updates
-- **Data Layer**: CSV logging + JSON configuration
-- **AI Integration**: OpenAI API for insights generation
-- **Service Manager**: Systemd for autostart and crash recovery
+## System Components
 
-### Performance Specifications
-- **Processing Speed**: 30 FPS real-time inference
-- **Detection Accuracy**: >95% person detection confidence
-- **Tracking Persistence**: Cross-frame identity maintenance
-- **Memory Usage**: <2GB RAM typical operation
-- **Storage Requirements**: ~100MB per day typical logging
+| Component | Technology |
+|---|---|
+| Person Detection | HAILO-8 via DeGirum PySDK (YOLOv8n) |
+| Multi-object Tracking | IoU-based custom tracker |
+| Web Framework | Flask + Flask-SocketIO |
+| Real-time Updates | WebSocket (Socket.IO) |
+| AI Summaries | OpenAI API (GPT-4o) |
+| Crowd Alert Agent | OpenAI + Slack webhook |
+| Environmental Sensor | Cisco Meraki Dashboard API v1 |
+| Data Storage | CSV (local), persistent across restarts |
 
-### Network Requirements
-- **Bandwidth**: 10Mbps minimum for remote dashboard access
-- **Latency**: <100ms for real-time updates
-- **Protocol Support**: HTTP/HTTPS, WebSocket, MQTT (future)
+## Secrets — Files Not Committed to Git
 
-## Support and Maintenance
+| File | Contents |
+|---|---|
+| `openai.txt` | OpenAI API key |
+| `slack.txt` | Slack incoming webhook URL |
 
-### Monitoring
-- **Health checks**: Automatic system status monitoring
-- **Log rotation**: Automated cleanup and archival
-- **Performance metrics**: System resource utilization
-- **Alert system**: Configurable notification thresholds
-
-### Troubleshooting
-- **Debug modes**: Verbose logging for issue diagnosis
-- **Simulation modes**: Hardware-independent testing
-- **Recovery procedures**: Automatic restart and fallback
-- **Documentation**: Comprehensive operational guides
-
-This system provides a robust foundation for supermarket traffic monitoring with clear paths for enterprise-scale deployment and AWS cloud integration.
-
+The Meraki API key is stored in `agentic_monitoring.py` — rotate it by updating `MERAKI_API_KEY` and restarting the service.
