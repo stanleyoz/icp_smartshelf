@@ -156,6 +156,37 @@
             color: #dc3545;
         }
 
+        .metric-card.sensor-temp .value {
+            color: #17a2b8;
+        }
+
+        .metric-card.sensor-hum .value {
+            color: #6f42c1;
+        }
+
+        /* Meraki logos */
+        .meraki-logo-header {
+            display: inline-block;
+            background: white;
+            border-radius: 6px;
+            padding: 3px 8px;
+            margin-left: 14px;
+            vertical-align: middle;
+        }
+
+        .meraki-logo-header img {
+            height: 22px;
+            width: auto;
+            display: block;
+        }
+
+        .meraki-logo-card {
+            display: block;
+            margin: 0 auto 8px auto;
+            height: 20px;
+            width: auto;
+        }
+
         /* Main Content Grid */
         .dashboard-grid {
             display: grid;
@@ -419,6 +450,74 @@
             margin: 0;
         }
 
+        /* Alert Agent Toggle */
+        .alert-agent-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid #ffeeba;
+        }
+
+        .alert-agent-toggle label {
+            font-weight: 600;
+            color: #856404;
+            font-size: 0.95em;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            border-radius: 26px;
+            transition: .3s;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            border-radius: 50%;
+            transition: .3s;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #28a745;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+
+        .toggle-status {
+            font-size: 0.85em;
+            font-weight: 600;
+            min-width: 28px;
+        }
+
+        .toggle-status.on  { color: #28a745; }
+        .toggle-status.off { color: #dc3545; }
+
         /* Crowd Alert Modal */
         .crowd-modal {
             position: fixed;
@@ -560,6 +659,9 @@
                 <span id="agent-status" class="agent-badge agent-watching">
                     🤖 Crowd Alert Agent: Watching
                 </span>
+                <span class="meraki-logo-header">
+                    <img src="/static/meraki-logo.png" alt="Cisco Meraki">
+                </span>
             </div>
         </div>
 
@@ -570,20 +672,10 @@
                 <div class="value" id="current-count">0</div>
                 <div class="change">People in view</div>
             </div>
-            <div class="metric-card unique">
-                <h3>Unique Visitors</h3>
-                <div class="value" id="unique-visitors">0</div>
-                <div class="change">Total today</div>
-            </div>
             <div class="metric-card average">
                 <h3>5min Count</h3>
                 <div class="value" id="avg-5m">0</div>
                 <div class="change">Recent detections</div>
-            </div>
-            <div class="metric-card average">
-                <h3>30min Count</h3>
-                <div class="value" id="avg-30m">0</div>
-                <div class="change">Half hour detections</div>
             </div>
             <div class="metric-card average">
                 <h3>60min Count</h3>
@@ -594,6 +686,18 @@
                 <h3>Daily Maximum</h3>
                 <div class="value" id="daily-max">0</div>
                 <div class="change">Peak activity</div>
+            </div>
+            <div class="metric-card sensor-temp">
+                <img class="meraki-logo-card" src="/static/meraki-logo.png" alt="Cisco Meraki">
+                <h3>Temperature</h3>
+                <div class="value" id="sensor-temp">--</div>
+                <div class="change">°C</div>
+            </div>
+            <div class="metric-card sensor-hum">
+                <img class="meraki-logo-card" src="/static/meraki-logo.png" alt="Cisco Meraki">
+                <h3>Humidity</h3>
+                <div class="value" id="sensor-hum">--</div>
+                <div class="change">%RH</div>
             </div>
         </div>
 
@@ -651,6 +755,14 @@
             <div class="controls">
                 <button class="btn danger" onclick="resetAllData()">Reset ALL Data</button>
                 <button class="btn danger" onclick="resetCounter()">Reset Counter</button>
+            </div>
+            <div class="alert-agent-toggle">
+                <label for="alertAgentSwitch">Alert Agent</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="alertAgentSwitch" checked onchange="toggleAlertAgent(this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+                <span id="alertAgentStatus" class="toggle-status on">ON</span>
             </div>
         </div>
 
@@ -814,11 +926,25 @@
         // Update metrics display
         function updateMetricsDisplay(metrics) {
             document.getElementById('current-count').textContent = metrics.current || 0;
-            document.getElementById('unique-visitors').textContent = metrics.unique_visitors || 0;
             document.getElementById('avg-5m').textContent = metrics.avg_5m || 0;
-            document.getElementById('avg-30m').textContent = metrics.avg_30m || 0;
             document.getElementById('avg-60m').textContent = metrics.avg_60m || 0;
             document.getElementById('daily-max').textContent = metrics.daily_max || 0;
+        }
+
+        // Fetch sensor data every 15 seconds
+        function fetchSensorData() {
+            fetch('/api/sensor')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('sensor-temp').textContent =
+                        data.temperature !== null ? parseFloat(data.temperature).toFixed(1) : '--';
+                    document.getElementById('sensor-hum').textContent =
+                        data.humidity !== null ? data.humidity : '--';
+                })
+                .catch(() => {
+                    document.getElementById('sensor-temp').textContent = '--';
+                    document.getElementById('sensor-hum').textContent = '--';
+                });
         }
 
         // Update real-time chart
@@ -1032,9 +1158,7 @@
 
                         // Reset metrics display to zero immediately
                         document.getElementById('current-count').textContent = '0';
-                        document.getElementById('unique-visitors').textContent = '0';
                         document.getElementById('avg-5m').textContent = '0';
-                        document.getElementById('avg-30m').textContent = '0';
                         document.getElementById('avg-60m').textContent = '0';
                         document.getElementById('daily-max').textContent = '0';
 
@@ -1070,6 +1194,32 @@
                     });
             }
         }
+
+        function toggleAlertAgent(enabled) {
+            fetch('/api/alert_agent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: enabled })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const status = document.getElementById('alertAgentStatus');
+                status.textContent = data.enabled ? 'ON' : 'OFF';
+                status.className = 'toggle-status ' + (data.enabled ? 'on' : 'off');
+            })
+            .catch(error => console.error('Error toggling alert agent:', error));
+        }
+
+        // Sync toggle state on page load
+        fetch('/api/alert_agent')
+            .then(r => r.json())
+            .then(data => {
+                const sw = document.getElementById('alertAgentSwitch');
+                const status = document.getElementById('alertAgentStatus');
+                sw.checked = data.enabled;
+                status.textContent = data.enabled ? 'ON' : 'OFF';
+                status.className = 'toggle-status ' + (data.enabled ? 'on' : 'off');
+            });
 
         function generateSummary() {
             const summarizeBtn = document.getElementById('summarize-btn');
@@ -1158,6 +1308,7 @@
 
             // Initial data fetch
             fetchMetrics();
+            fetchSensorData();
 
             // Restore alert state if within cooldown window
             fetch('/api/last_alert').then(r => r.json()).then(data => {
@@ -1171,6 +1322,7 @@
 
             // Set up periodic updates
             setInterval(fetchMetrics, 2000);        // Every 2 seconds
+            setInterval(fetchSensorData, 15000);    // Every 15 seconds
 
             console.log('Dashboard loaded successfully');
         });

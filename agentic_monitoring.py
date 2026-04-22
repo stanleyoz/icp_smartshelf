@@ -4,7 +4,7 @@ Development Version of Traffic Monitor
 Works with webcam and simulated inference for development
 """
 
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO, emit
 import pandas as pd
 from datetime import datetime, timedelta
@@ -24,6 +24,17 @@ from typing import List, Tuple, Dict, Optional
 import json
 from openai import OpenAI
 import requests
+
+# ── Meraki Sensor Config ──────────────────────────────────────────────────────
+MERAKI_API_KEY  = "852c64663d82a8db0dc40202bd11200986a3d8e1"
+MERAKI_MT10_MAC = "a8:46:9d:ff:ca:ee"
+MERAKI_BASE_URL = "https://api.meraki.com/api/v1"
+MERAKI_HEADERS  = {
+    "X-Cisco-Meraki-API-Key": MERAKI_API_KEY,
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+}
+MERAKI_POLL_SEC = 15
 
 # Import development configuration
 from config_dev import (
@@ -103,10 +114,18 @@ except Exception:
     SLACK_WEBHOOK_URL = None
     print("⚠️  slack.txt not found — Slack alerts disabled")
 
+# Meraki sensor state
+sensor_temperature = None   # °C
+sensor_humidity    = None   # %RH
+sensor_last_updated = None
+_meraki_org_id  = None
+_meraki_serial  = None
+
 # Crowd alert cooldown state
 last_alert_time = 0          # epoch seconds
 ALERT_COOLDOWN = 60          # 1 minute cooldown
 last_alert_message = ""      # shown in frontend popup
+alert_agent_enabled = True   # toggle via UI
 
 # Tracking data
 current_person_count = 0
@@ -837,6 +856,8 @@ def crowd_alert_agent_thread():
     global last_alert_time, last_alert_message
     while not stop_event.is_set():
         time.sleep(10)  # check every 10 seconds
+        if not alert_agent_enabled:
+            continue
         now = time.time()
         if current_person_count >= 2 and (now - last_alert_time) >= ALERT_COOLDOWN:
             try:
@@ -873,6 +894,14 @@ def get_last_alert():
         "cooldown_remaining": max(0, int(ALERT_COOLDOWN - (time.time() - last_alert_time))),
         "last_alert_ts": datetime.fromtimestamp(last_alert_time).strftime("%H:%M:%S") if last_alert_time else None,
     })
+
+@app.route('/api/alert_agent', methods=['GET', 'POST'])
+def alert_agent_toggle():
+    global alert_agent_enabled
+    if request.method == 'POST':
+        data = request.get_json()
+        alert_agent_enabled = bool(data.get('enabled', True))
+    return jsonify({"enabled": alert_agent_enabled})
 
 @app.route('/api/metrics')
 def get_metrics():
@@ -1086,6 +1115,75 @@ Format: Keep it professional, actionable, and focused on operational insights th
         print(f"Error generating summary: {e}")
         return jsonify({'error': f'Failed to generate summary: {str(e)}'}), 500
 
+# ── Meraki Sensor Functions ───────────────────────────────────────────────────
+def _meraki_get(path, params=None):
+    r = requests.get(f"{MERAKI_BASE_URL}{path}", headers=MERAKI_HEADERS,
+                     params=params, timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+def _meraki_discover():
+    """Walk orgs→devices to find the MT10 serial. Returns (org_id, serial)."""
+    global _meraki_org_id, _meraki_serial
+    try:
+        orgs = _meraki_get("/organizations")
+        for org in orgs:
+            try:
+                devices = _meraki_get(f"/organizations/{org['id']}/devices")
+            except Exception:
+                continue
+            for dev in devices:
+                mac = dev.get("mac", "").lower().replace("-", ":").replace(".", ":")
+                if mac == MERAKI_MT10_MAC.lower():
+                    _meraki_org_id = org["id"]
+                    _meraki_serial = dev["serial"]
+                    print(f"✅ Meraki MT10 discovered: serial={_meraki_serial} org={org['name']}")
+                    return True
+        print("⚠️  Meraki MT10 not found — sensor widgets will show N/A")
+        return False
+    except Exception as e:
+        print(f"⚠️  Meraki discovery error: {e}")
+        return False
+
+def _meraki_fetch_readings():
+    """Fetch latest temp/humidity from the MT10. Updates globals."""
+    global sensor_temperature, sensor_humidity, sensor_last_updated
+    if not _meraki_org_id or not _meraki_serial:
+        return
+    try:
+        data = _meraki_get(
+            f"/organizations/{_meraki_org_id}/sensor/readings/latest",
+            params={"serials[]": _meraki_serial}
+        )
+        for sensor in data:
+            if sensor.get("serial") == _meraki_serial:
+                for reading in sensor.get("readings", []):
+                    metric = reading.get("metric")
+                    if metric == "temperature":
+                        sensor_temperature = reading["temperature"]["celsius"]
+                    elif metric == "humidity":
+                        sensor_humidity = reading["humidity"]["relativePercentage"]
+                sensor_last_updated = datetime.now().isoformat()
+                break
+    except Exception as e:
+        print(f"⚠️  Meraki poll error: {e}")
+
+def meraki_sensor_thread():
+    """Background thread: discover sensor then poll every MERAKI_POLL_SEC seconds."""
+    if not _meraki_discover():
+        return
+    while not stop_event.is_set():
+        _meraki_fetch_readings()
+        stop_event.wait(MERAKI_POLL_SEC)
+
+@app.route('/api/sensor')
+def get_sensor():
+    return jsonify({
+        'temperature': sensor_temperature,
+        'humidity': sensor_humidity,
+        'last_updated': sensor_last_updated,
+    })
+
 @socketio.on('connect')
 def handle_connect():
     print(f"Client connected")
@@ -1171,6 +1269,11 @@ if __name__ == '__main__':
     alert_thread = threading.Thread(target=crowd_alert_agent_thread, daemon=True)
     alert_thread.start()
     print("🤖 Crowd Alert Agent started (threshold: >2 persons, cooldown: 5 min)")
+
+    # Start Meraki sensor polling thread
+    sensor_thread = threading.Thread(target=meraki_sensor_thread, daemon=True)
+    sensor_thread.start()
+    print(f"🌡  Meraki MT10 sensor thread started (poll interval: {MERAKI_POLL_SEC}s)")
 
     print(f"\n🚀 Starting development server...")
     print(f"🌐 Dashboard: http://{FLASK_HOST}:{FLASK_PORT}")
