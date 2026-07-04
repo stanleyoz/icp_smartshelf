@@ -1,177 +1,160 @@
-# Shopper Traffic Monitoring and Analysis System
+# ARM AI Optimization Challenge — Mobile LLM for Sensor Triage
 
-An AI-powered traffic monitoring system built for supermarket environments, utilizing computer vision and edge AI inference on Raspberry Pi 5 hardware to track and analyze customer traffic patterns in real-time. The system includes an agentic crowd alert agent, OpenAI-powered summaries, and live environmental sensor readings via Cisco Meraki.
+**Track:** AI Model Optimization  
+**Inference Engine:** llama.cpp + GGUF  
+**Base Model:** Qwen2-0.5B (quantized to Q4_K_M)  
+**Target Device:** Raspberry Pi 5 (ARM Cortex-A76)  
+**Fine-tuning GPU:** RTX3000 8GB (local) / RTX4090 (SSH)
 
-## Project Overview
+## Overview
 
-- **Real-time person detection and tracking** using Pi Camera (PiCamera2) or webcam
-- **Edge AI inference** with HAILO-8 accelerator via DeGirum PySDK
-- **Live web dashboard** with real-time metrics, video feed, and historical charts
-- **Agentic crowd alert** — AI agent monitors occupancy and triggers Slack alerts when thresholds are exceeded
-- **Environmental monitoring** — Cisco Meraki MT10 sensor provides live temperature and humidity readings
-- **LLM-powered summaries** via OpenAI API for on-demand business intelligence
-- **Persistent data logging** with CSV export and automatic daily reset at 08:00
+This project optimizes a small language model (Qwen2-0.5B) for on-device ARM deployment
+to triage real-time sensor data and trigger alerts within **1–2 seconds**.
 
-## Hardware Requirements
+**Key differentiator:** A hybrid approach combining fast rule-based threshold checks
+(<10 ms) with LLM-powered context triage — the LLM only runs when thresholds are
+breached, keeping average latency well under 2 seconds while retaining intelligence
+for complex edge cases.
 
-### Required
-- **Raspberry Pi 5** (8GB recommended)
-- **Pi Camera Module 3** or compatible USB webcam
+## Architecture
 
-### Optional / Supported
-- **HAILO-8 AI Accelerator** (falls back to simulation if not present)
-- **Cisco Meraki MT10** temperature and humidity sensor (requires Meraki Dashboard API access)
-- **PoE+ HAT** for network-powered deployment
-- **Cooling fan / heatsink** for continuous operation
+```
+[Sensor Hardware: temp / humidity / people]
+          |
+          v (real-time CSV stream, 1 reading/s)
+[Sensor Reader] --> SensorWindow (last N seconds)
+          |
+          v
+[Threshold Rules] -- fast pass (<10 ms) --> [No alert] (~90 % of windows)
+          |
+          v triggered
+[LLM Triage] (Qwen2-0.5B Q4_K_M via llama.cpp)
+          |
+          v structured JSON
+[Alert Actions] --> BUZZER / log / network notification
+```
 
-## Software Setup
+## Directory Structure
 
-### 1. Clone the repository
+```
+optimize-arm-qc480b/
+  src/
+    model_optimization/
+      download_model.py      # Pull Qwen2-0.5B from Hugging Face
+      export_to_gguf.py      # HF --> GGUF conversion
+      quantize_model.py      # Q4_K_M quantization + benchmarks
+      benchmark.py           # tokens/s, TTFT, memory profiling
+    data_processing/
+      sensor_generator.py    # Synthetic CSV data with realistic patterns
+      sensor_reader.py       # Unified CSV/JSON/SQLite3 --> SensorWindow
+    alerting/
+      threshold_rules.py     # Fast rule checks (temp, humidity, people)
+      llm_triage.py          # Qwen inference via llama-cpp-python
+      alert_engine.py        # Hybrid pipeline orchestrator
+      alert_actions.py       # BUZZER / log / notify abstractions
+      latency_monitor.py     # End-to-end timing, sub-2 s enforcement
+  models/                   # Downloaded + quantized GGUF files
+  docs/
+    rpi5_deployment.md       # RPi 5 setup guide
+    benchmark_results.md     # Performance measurements
+  tests/                     # Unit tests for all modules
+  requirements.txt
+  setup.sh                   # One-command environment setup
+  benchmark.sh               # Automated benchmark suite
+  LICENSE                    # Apache 2.0
+```
+
+## Setup
+
+### Prerequisites
+
+- Python 3.10+
+- ARM device (Raspberry Pi 5 recommended) or any Linux/macOS for development
+- GPU (optional) for fine-tuning — RTX3000 8 GB is sufficient for Qwen2-0.5B LoRA
+
+### Quick Start
+
 ```bash
-git clone https://github.com/stanleyoz/icp_smartshelf.git
-cd icp_smartshelf
+git clone <repo> && cd optimize-arm-qc480b
+./setup.sh                              # Install deps, build llama.cpp, download model
+python -m src.model_optimization.quantize_model   # Quantize to Q4_K_M
+python -m src.data_processing.sensor_generator    # Generate synthetic sensor data
+python -m src.alerting.alert_engine               # Run hybrid alert pipeline
 ```
 
-### 2. Create virtual environment and install dependencies
+## Model Pipeline
+
+1. **Download** `Qwen/Qwen2-0.5B` from Hugging Face
+2. **Convert** to GGUF format via llama.cpp `convert.py`
+3. **Quantize** to Q4_K_M (4.5 bits per weight — best quality/size ratio)
+4. **Fine-tune** (optional) with LoRA on sensor domain data using RTX3000/RTX4090
+5. **Benchmark** tokens/s, time-to-first-token, peak memory
+
+## Alert Pipeline
+
+1. **Sensor Ingestion** — reads CSV/JSON/SQLite3 streams, creates rolling windows
+2. **Threshold check** — fast rules evaluate temperature (>40 °C), humidity (>90 %),
+   people-count anomalies — completes in <10 ms
+3. **LLM Triage** — if threshold triggered, Qwen2-0.5B analyzes the sensor window
+   with a structured prompt and outputs `{"alert": bool, "reason": str, "severity": "low"|"medium"|"high"}`
+4. **Alert Action** — triggers BUZZER (GPIO), writes to alert log,
+   optionally notifies network endpoint
+5. **Latency Monitoring** — measures every step, enforces p99 < 2000 ms
+
+## Prompt Design
+
+**System prompt for on-device LLM:**
+
+```
+You are a sensor data triage specialist. Analyze the recent sensor readings and
+determine if an alert is needed. Respond ONLY with valid JSON:
+{"alert": true/false, "reason": "brief explanation", "severity": "low/medium/high"}
+
+Threshold rules have already triggered: {triggered_rules}
+Recent sensor data (last {window_size} s):
+{sensor_window_formatted}
+
+Assess whether the current conditions truly warrant an alert, considering context
+and trends. Consider: is this a transient spike? Is it part of a normal pattern?
+```
+
+**Example output:**
+
+```json
+{"alert": true, "reason": "Temperature 42°C exceeds threshold 40°C and rising trend over last 30 s. Room is occupied (3 people).", "severity": "high"}
+```
+
+## Benchmarking
+
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+./benchmark.sh              # Full benchmark suite
 ```
 
-### 3. Configuration
+Outputs:
 
-**Hardware** — Edit `config_dev.py` to match your setup:
-- Camera source: `picamera2` (auto-detected) or `webcam`
-- Inference mode: `hailo` via DeGirum, or `simulation`
-- Flask host/port (default `0.0.0.0:5000`)
+- Model size (MB) before / after quantization
+- Inference speed (tokens/s) at fp16, Q8_0, Q4_K_M
+- Time-to-first-token (ms)
+- Peak memory usage (MB)
+- End-to-end alert latency (p50 / p95 / p99)
 
-**OpenAI** — Create `openai.txt` with your API key:
-```
-sk-...your-key-here...
-```
+## Latency Budget
 
-**Slack Alerts** — Create `slack.txt` with your Slack incoming webhook URL:
-```
-https://hooks.slack.com/services/...
-```
+| Path                  | Est. Time    | % of Windows | Contribution to p99 |
+|-----------------------|-------------|--------------|---------------------|
+| Threshold only        | ~10 ms      | ~90%         | Negligible          |
+| Threshold + LLM       | 200–800 ms  | ~10%         | ~80 % of total      |
+| **Effective p99**     | **~300 ms** | **All**      | Well under 2000 ms  |
 
-**Meraki MT10 Sensor** — Set your API key and sensor MAC address in `agentic_monitoring.py`:
-```python
-MERAKI_API_KEY  = "your-meraki-api-key"
-MERAKI_MT10_MAC = "aa:bb:cc:dd:ee:ff"
-```
-The system auto-discovers the sensor serial number at startup by walking your Meraki organisation.
+## Raspberry Pi 5 Deployment
 
-## Running the System
+See `docs/rpi5_deployment.md` for:
 
-### Foreground (development / testing)
-```bash
-source venv/bin/activate
-python agentic_monitoring.py
-```
+- Cross-compiling llama.cpp for aarch64
+- Transferring GGUF models
+- GPIO wiring for BUZZER output
+- Running as a systemd service
 
-### Background (SSH / headless deployment)
-```bash
-source venv/bin/activate
-nohup python agentic_monitoring.py > nohup.out 2>&1 &
-tail -f nohup.out   # monitor startup
-```
+## License
 
-### Autostart on Boot (production)
-```bash
-chmod +x install_autostart.sh
-./install_autostart.sh
-```
-Or install the systemd service manually:
-```bash
-sudo cp traffic-monitor.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable traffic-monitor
-sudo systemctl start traffic-monitor
-```
-
-**Service management:**
-```bash
-sudo systemctl status traffic-monitor
-sudo systemctl stop traffic-monitor
-sudo journalctl -u traffic-monitor -f
-```
-
-### Access the Dashboard
-Open a browser to `http://[pi-ip-address]:5000`
-
-## Dashboard Features
-
-### Metrics Grid
-| Widget | Description |
-|---|---|
-| Current Count | People detected in frame right now |
-| 5min Count | Unique people detected in last 5 minutes |
-| 60min Count | Unique people detected in last 60 minutes |
-| Daily Maximum | Peak concurrent occupancy since 08:00 |
-| Temperature | Live °C reading from Meraki MT10 |
-| Humidity | Live %RH reading from Meraki MT10 |
-
-### Live Camera Feed
-Real-time video with person detection bounding boxes and tracking overlays.
-
-### Historical Chart
-Configurable time-window chart (5min / 30min / 1hr / trading day) showing occupancy over time.
-
-### Agentic Crowd Alert
-An AI agent continuously monitors current occupancy. When the threshold is exceeded it:
-- Sends an alert message to Slack via webhook
-- Pops up a modal notification on the dashboard
-- Enforces a cooldown period (default 60 seconds) to avoid alert spam
-- Can be toggled on/off from the dashboard without restarting
-
-The alert message is generated by OpenAI based on current traffic context.
-
-### AI Summary
-On-demand LLM summary of current traffic conditions, generated via the **Summarize** button.
-
-### Data Management
-- **Reset Counter** — clears in-memory tracking (keeps CSV files)
-- **Reset ALL Data** — clears both in-memory state and all trackinglog CSV files
-- Daily automatic reset of all counters at 08:00 (store opening)
-
-## File Structure
-```
-icp_smartshelf/
-├── agentic_monitoring.py           # Main application (Flask + inference + agents)
-├── o4_hailo_detection_module.py    # HAILO-8 detection via DeGirum PySDK
-├── config_dev.py                   # Hardware detection and app configuration
-├── install_autostart.sh            # Systemd autostart installer
-├── traffic-monitor.service         # Systemd service definition
-├── requirements.txt                # Python dependencies
-├── templates/
-│   └── agentic_dashboard.html      # Web dashboard (HTML/CSS/JS)
-├── static/
-│   └── meraki-logo.png             # Cisco Meraki logo (served locally)
-├── trackinglog/                    # CSV tracking logs (auto-created)
-├── openai.txt                      # OpenAI API key (not committed)
-└── slack.txt                       # Slack webhook URL (not committed)
-```
-
-## System Components
-
-| Component | Technology |
-|---|---|
-| Person Detection | HAILO-8 via DeGirum PySDK (YOLOv8n) |
-| Multi-object Tracking | IoU-based custom tracker |
-| Web Framework | Flask + Flask-SocketIO |
-| Real-time Updates | WebSocket (Socket.IO) |
-| AI Summaries | OpenAI API (GPT-4o) |
-| Crowd Alert Agent | OpenAI + Slack webhook |
-| Environmental Sensor | Cisco Meraki Dashboard API v1 |
-| Data Storage | CSV (local), persistent across restarts |
-
-## Secrets — Files Not Committed to Git
-
-| File | Contents |
-|---|---|
-| `openai.txt` | OpenAI API key |
-| `slack.txt` | Slack incoming webhook URL |
-
-The Meraki API key is stored in `agentic_monitoring.py` — rotate it by updating `MERAKI_API_KEY` and restarting the service.
+Apache 2.0
