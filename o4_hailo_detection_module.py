@@ -188,6 +188,9 @@ class HailoDetector:
                                 bbox = getattr(obj, 'bbox', None)
                                 category_id = getattr(obj, 'category_id', 0)
                             
+                            # DEBUG: log every detected label to diagnose missing person detections
+                            print(f"DEBUG: Detected label='{label}' score={score:.4f}", file=sys.stderr)
+
                             # Only process person detections - skip all other classes
                             if label != "person":
                                 continue
@@ -235,6 +238,9 @@ class HailoDetector:
             except Exception as e:
                 print(f"HAILO detection (DeGirum infer) error: {e}", file=sys.stderr)
                 traceback.print_exc(file=sys.stderr)
+                if "HAILO_STREAM_ABORT" in str(e):
+                    print("⚠️  HAILO_STREAM_ABORT detected — marking detector as uninitialized, will fall back to simulation", file=sys.stderr)
+                    self.is_initialized = False
                 return []
 
     def _preprocess_frame(self, frame: np.ndarray) -> np.ndarray:
