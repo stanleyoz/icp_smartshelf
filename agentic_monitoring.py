@@ -26,7 +26,9 @@ from openai import OpenAI
 import requests
 
 # ── Meraki Sensor Config ──────────────────────────────────────────────────────
-MERAKI_API_KEY  = "852c64663d82a8db0dc40202bd11200986a3d8e1"
+MERAKI_API_KEY  = os.environ.get("MERAKI_API_KEY")
+if not MERAKI_API_KEY:
+    print("⚠️  MERAKI_API_KEY not set in environment")
 MERAKI_MT10_MAC = "a8:46:9d:ff:ca:ee"
 MERAKI_BASE_URL = "https://api.meraki.com/api/v1"
 MERAKI_HEADERS  = {
